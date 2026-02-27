@@ -1,23 +1,46 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import WebApp from "@twa-dev/sdk";
 
-const LS_KEY = "gokart_registered_v1";
-
 function App() {
-  const [status, setStatus] = useState("init");
+  const [status, setStatus] = useState("Загрузка...");
   const [inTelegram, setInTelegram] = useState(false);
 
-  const [registered, setRegistered] = useState(false);
+  const [auth, setAuth] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [needsRegistration, setNeedsRegistration] = useState(false);
 
-  // "Профиль" из Telegram (unsafe для UI, безопасный возьмём позже с backend)
-  const tgUser = useMemo(() => WebApp.initDataUnsafe?.user || null, []);
+  const [form, setForm] = useState({ name: "", phone: "", agree: false });
 
-  // Простая форма регистрации (пока без отправки на сервер)
-  const [form, setForm] = useState({
-    phone: "",
-    name: "",
-    agree: false,
-  });
+  const loadAuth = async () => {
+    const initData = WebApp.initData;
+    const unsafeUser = WebApp.initDataUnsafe?.user;
+
+    if (!unsafeUser || !initData) {
+      setInTelegram(false);
+      setStatus("Открыто в браузере ⚠️");
+      return;
+    }
+
+    setInTelegram(true);
+    setStatus("Проверяем профиль...");
+
+    const r = await fetch("/api/auth/telegram", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ initData }),
+    });
+
+    const data = await r.json();
+    if (!data.ok) {
+      setStatus("Ошибка авторизации: " + (data.error || "unknown"));
+      return;
+    }
+
+    setAuth(data.auth);
+    setProfile(data.profile);
+    setNeedsRegistration(Boolean(data.needsRegistration));
+    setStatus("Готово");
+  };
 
   useEffect(() => {
     try {
@@ -25,13 +48,7 @@ function App() {
       WebApp.expand();
     } catch {}
 
-    const hasTg = Boolean(WebApp.initDataUnsafe?.user) && Boolean(WebApp.initData);
-    setInTelegram(hasTg);
-
-    const saved = localStorage.getItem(LS_KEY);
-    setRegistered(saved === "1");
-
-    setStatus("ready");
+    loadAuth().catch((e) => setStatus("Ошибка: " + String(e?.message || e)));
   }, []);
 
   const onChange = (key) => (e) => {
@@ -42,170 +59,168 @@ function App() {
   const canSubmit =
     form.agree &&
     form.name.trim().length >= 2 &&
-    form.phone.trim().length >= 8; // супер грубо, потом нормализуем
+    form.phone.trim().length >= 8;
 
-  const submit = () => {
+  const submit = async () => {
     if (!canSubmit) return;
 
-    // Сейчас: просто считаем, что регистрация прошла.
-    // Потом: отправим на backend + Supabase.
-    localStorage.setItem(LS_KEY, "1");
-    setRegistered(true);
-
-    // маленький фидбек в телеге (если внутри)
     try {
-      if (inTelegram) WebApp.showPopup({ title: "Готово", message: "Регистрация сохранена" });
-    } catch {}
+      setStatus("Сохраняем регистрацию...");
+
+      const initData = WebApp.initData;
+
+      const r = await fetch("/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          initData,
+          name: form.name,
+          phone: form.phone,
+          agree: form.agree,
+        }),
+      });
+
+      const data = await r.json();
+      if (!data.ok) {
+        setStatus("Ошибка регистрации: " + (data.error || "unknown"));
+        return;
+      }
+
+      // перезагрузим профиль
+      await loadAuth();
+
+      try {
+        WebApp.showPopup({ title: "Готово", message: "Регистрация сохранена" });
+      } catch {}
+
+      setStatus("Готово");
+    } catch (e) {
+      setStatus("Ошибка: " + String(e?.message || e));
+    }
   };
 
-  const reset = () => {
-    localStorage.removeItem(LS_KEY);
-    setRegistered(false);
-    setForm({ phone: "", name: "", agree: false });
-  };
-
-  if (status !== "ready") {
-    return (
-      <div style={{ padding: 20, fontFamily: "system-ui" }}>
-        <h1>GoKart Mini App</h1>
-        <p>Загрузка...</p>
-      </div>
-    );
-  }
-
-  // Если уже "зарегистрирован" — пропускаем регистрацию
-  if (registered) {
+  if (!inTelegram) {
     return (
       <div style={{ padding: 20, fontFamily: "system-ui" }}>
         <h1>GoKart</h1>
-
-        <p style={{ marginTop: 8 }}>
-          {inTelegram ? "Вы в Telegram ✅" : "Открыто в браузере ⚠️"}
+        <p>{status}</p>
+        <p style={{ opacity: 0.8 }}>
+          Открой приложение внутри Telegram через бота.
         </p>
-
-        <div
-          style={{
-            marginTop: 16,
-            padding: 12,
-            borderRadius: 12,
-            background: "#f4f4f4",
-          }}
-        >
-          <h3 style={{ marginTop: 0 }}>Главный экран (заглушка)</h3>
-          <p style={{ margin: 0 }}>
-            Дальше тут будет баланс, история операций и т.д.
-          </p>
-        </div>
-
-        <div style={{ marginTop: 16 }}>
-          <h3>Данные Telegram (для проверки)</h3>
-          <pre style={{ background: "#f4f4f4", padding: 12, borderRadius: 12, fontSize: 12 }}>
-            {JSON.stringify(tgUser, null, 2)}
-          </pre>
-        </div>
-
-        <button
-          onClick={reset}
-          style={{
-            marginTop: 16,
-            padding: "10px 14px",
-            borderRadius: 12,
-            border: "1px solid #ddd",
-            background: "white",
-            cursor: "pointer",
-          }}
-        >
-          Сбросить “регистрацию” (для теста)
-        </button>
       </div>
     );
   }
 
   // Экран регистрации
+  if (needsRegistration) {
+    return (
+      <div style={{ padding: 20, fontFamily: "system-ui" }}>
+        <h1>Регистрация</h1>
+        <p style={{ marginTop: 8, opacity: 0.85 }}>
+          Заполни данные — сохраним в Supabase.
+        </p>
+
+        <div style={{ marginTop: 16 }}>
+          <label style={{ display: "block", fontSize: 14, marginBottom: 6 }}>
+            Имя
+          </label>
+          <input
+            value={form.name}
+            onChange={onChange("name")}
+            placeholder="Например, Евгений"
+            style={{
+              width: "100%",
+              padding: 12,
+              borderRadius: 12,
+              border: "1px solid #ddd",
+              outline: "none",
+            }}
+          />
+        </div>
+
+        <div style={{ marginTop: 12 }}>
+          <label style={{ display: "block", fontSize: 14, marginBottom: 6 }}>
+            Телефон
+          </label>
+          <input
+            value={form.phone}
+            onChange={onChange("phone")}
+            placeholder="+7 999 123-45-67"
+            inputMode="tel"
+            style={{
+              width: "100%",
+              padding: 12,
+              borderRadius: 12,
+              border: "1px solid #ddd",
+              outline: "none",
+            }}
+          />
+        </div>
+
+        <label
+          style={{
+            display: "flex",
+            gap: 10,
+            alignItems: "center",
+            marginTop: 12,
+            fontSize: 14,
+          }}
+        >
+          <input type="checkbox" checked={form.agree} onChange={onChange("agree")} />
+          Согласен с правилами программы лояльности
+        </label>
+
+        <button
+          onClick={submit}
+          disabled={!canSubmit}
+          style={{
+            marginTop: 16,
+            width: "100%",
+            padding: "12px 14px",
+            borderRadius: 12,
+            border: "none",
+            background: canSubmit ? "black" : "#999",
+            color: "white",
+            cursor: canSubmit ? "pointer" : "not-allowed",
+            fontSize: 16,
+            fontWeight: 600,
+          }}
+        >
+          Зарегистрироваться
+        </button>
+
+        <p style={{ marginTop: 12, fontSize: 12, opacity: 0.8 }}>
+          status: {status}
+        </p>
+      </div>
+    );
+  }
+
+  // Главный экран (пока простой)
   return (
     <div style={{ padding: 20, fontFamily: "system-ui" }}>
-      <h1>Регистрация</h1>
-
+      <h1>GoKart</h1>
       <p style={{ marginTop: 8 }}>
-        {inTelegram
-          ? "Откройте пару полей — потом привяжем к Supabase."
-          : "Лучше открывать из Telegram, но форма работает и в браузере."}
+        Вы в Telegram ✅
       </p>
 
-      <div style={{ marginTop: 16 }}>
-        <label style={{ display: "block", fontSize: 14, marginBottom: 6 }}>
-          Имя
-        </label>
-        <input
-          value={form.name}
-          onChange={onChange("name")}
-          placeholder="Например, Евгений"
-          style={{
-            width: "100%",
-            padding: 12,
-            borderRadius: 12,
-            border: "1px solid #ddd",
-            outline: "none",
-          }}
-        />
+      <div style={{ marginTop: 16, padding: 12, borderRadius: 12, background: "#f4f4f4" }}>
+        <h3 style={{ marginTop: 0 }}>Профиль (из Supabase)</h3>
+        <pre style={{ margin: 0, fontSize: 12 }}>
+          {JSON.stringify(profile, null, 2)}
+        </pre>
       </div>
 
-      <div style={{ marginTop: 12 }}>
-        <label style={{ display: "block", fontSize: 14, marginBottom: 6 }}>
-          Телефон
-        </label>
-        <input
-          value={form.phone}
-          onChange={onChange("phone")}
-          placeholder="+7 999 123-45-67"
-          inputMode="tel"
-          style={{
-            width: "100%",
-            padding: 12,
-            borderRadius: 12,
-            border: "1px solid #ddd",
-            outline: "none",
-          }}
-        />
+      <div style={{ marginTop: 16, padding: 12, borderRadius: 12, background: "#f4f4f4" }}>
+        <h3 style={{ marginTop: 0 }}>Auth (из Telegram, проверено)</h3>
+        <pre style={{ margin: 0, fontSize: 12 }}>
+          {JSON.stringify(auth, null, 2)}
+        </pre>
       </div>
 
-      <label
-        style={{
-          display: "flex",
-          gap: 10,
-          alignItems: "center",
-          marginTop: 12,
-          fontSize: 14,
-        }}
-      >
-        <input type="checkbox" checked={form.agree} onChange={onChange("agree")} />
-        Согласен с правилами программы лояльности
-      </label>
-
-      <button
-        onClick={submit}
-        disabled={!canSubmit}
-        style={{
-          marginTop: 16,
-          width: "100%",
-          padding: "12px 14px",
-          borderRadius: 12,
-          border: "none",
-          background: canSubmit ? "black" : "#999",
-          color: "white",
-          cursor: canSubmit ? "pointer" : "not-allowed",
-          fontSize: 16,
-          fontWeight: 600,
-        }}
-      >
-        Зарегистрироваться
-      </button>
-
-      <div style={{ marginTop: 16, fontSize: 12, opacity: 0.8 }}>
-        <div>Debug:</div>
-        <div>inTelegram: {String(inTelegram)}</div>
-        <div>tgUserId: {tgUser?.id ? String(tgUser.id) : "нет"}</div>
-      </div>
+      <p style={{ marginTop: 12, fontSize: 12, opacity: 0.8 }}>
+        status: {status}
+      </p>
     </div>
   );
 }

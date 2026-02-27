@@ -45,14 +45,8 @@ function checkTelegramInitData(initData, botToken) {
   return { ok, data, error: ok ? null : "BAD_SIGNATURE" };
 }
 
-function isAdmin(tgId, adminList) {
-  const set = new Set(
-    (adminList || "")
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean)
-  );
-  return set.has(String(tgId));
+function cleanPhone(input) {
+  return String(input || "").trim();
 }
 
 export default async function handler(req, res) {
@@ -74,9 +68,14 @@ export default async function handler(req, res) {
     }
 
     const initData = body?.initData;
-    if (!initData) {
-      return res.status(400).end(JSON.stringify({ ok: false, error: "NO_INIT_DATA" }));
-    }
+    const name = String(body?.name || "").trim();
+    const phone = cleanPhone(body?.phone);
+    const agree = Boolean(body?.agree);
+
+    if (!initData) return res.status(400).end(JSON.stringify({ ok: false, error: "NO_INIT_DATA" }));
+    if (!agree) return res.status(400).end(JSON.stringify({ ok: false, error: "MUST_AGREE" }));
+    if (name.length < 2) return res.status(400).end(JSON.stringify({ ok: false, error: "BAD_NAME" }));
+    if (phone.length < 8) return res.status(400).end(JSON.stringify({ ok: false, error: "BAD_PHONE" }));
 
     const check = checkTelegramInitData(initData, botToken);
     if (!check.ok) {
@@ -88,38 +87,27 @@ export default async function handler(req, res) {
       user = check.data.user ? JSON.parse(check.data.user) : null;
     } catch {}
 
-    if (!user?.id) {
-      return res.status(400).end(JSON.stringify({ ok: false, error: "NO_USER" }));
-    }
+    if (!user?.id) return res.status(400).end(JSON.stringify({ ok: false, error: "NO_USER" }));
 
     const telegramId = user.id;
 
-    // Ищем профиль в Supabase
     const supabase = getSupabase();
-    const { data: profile, error } = await supabase
+
+    // upsert профиля
+    const { data, error } = await supabase
       .from("profiles")
+      .upsert(
+        { telegram_id: telegramId, name, phone },
+        { onConflict: "telegram_id" }
+      )
       .select("telegram_id, name, phone, created_at")
-      .eq("telegram_id", telegramId)
-      .maybeSingle();
+      .single();
 
     if (error) {
       return res.status(500).end(JSON.stringify({ ok: false, error: "SUPABASE_ERROR", details: error.message }));
     }
 
-    return res.status(200).end(
-      JSON.stringify({
-        ok: true,
-        auth: {
-          telegramId,
-          username: user.username || null,
-          firstName: user.first_name || null,
-          lastName: user.last_name || null,
-          isAdmin: isAdmin(telegramId, process.env.ADMIN_TG_IDS || ""),
-        },
-        needsRegistration: !profile,
-        profile: profile || null,
-      })
-    );
+    return res.status(200).end(JSON.stringify({ ok: true, profile: data }));
   } catch (err) {
     return res.status(500).end(
       JSON.stringify({ ok: false, error: "INTERNAL_ERROR", details: String(err?.message || err) })
