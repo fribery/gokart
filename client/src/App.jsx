@@ -2,56 +2,75 @@ import { useEffect, useState } from "react";
 import WebApp from "@twa-dev/sdk";
 
 function App() {
+  const [status, setStatus] = useState("Инициализация...");
   const [profile, setProfile] = useState(null);
-  const [status, setStatus] = useState("init");
 
   useEffect(() => {
-    (async () => {
+    const init = async () => {
       try {
+        // Инициализация Telegram WebApp
         WebApp.ready();
         WebApp.expand();
 
         const initData = WebApp.initData;
-        const userUnsafe = WebApp.initDataUnsafe?.user;
+        const unsafeUser = WebApp.initDataUnsafe?.user;
 
-        if (!userUnsafe || !initData) {
-          setStatus("not_in_telegram");
+        // Если открыто не из Telegram
+        if (!unsafeUser || !initData) {
+          setStatus("Открыто в браузере ⚠️");
           return;
         }
 
-        setStatus("auth...");
+        setStatus("Авторизация через Telegram...");
 
-        const r = await fetch("/api/auth/telegram", {
+        // Отправляем initData на backend (Vercel API)
+        const response = await fetch("/api/auth/telegram", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ initData })
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ initData }),
         });
 
-        const data = await r.json();
+        const data = await response.json();
+
         if (!data.ok) {
-          setStatus("auth_failed");
+          setStatus("Ошибка авторизации: " + (data.error || "unknown"));
           return;
         }
 
         setProfile(data.profile);
-        setStatus("ok");
-      } catch (e) {
-        setStatus("error: " + String(e));
+        setStatus("Вы в Telegram ✅ (проверено backend)");
+      } catch (error) {
+        console.error(error);
+        setStatus("Ошибка: " + error.message);
       }
-    })();
+    };
+
+    init();
   }, []);
 
   return (
-    <div style={{ padding: 20 }}>
+    <div style={{ padding: 20, fontFamily: "system-ui" }}>
       <h1>GoKart Mini App</h1>
-      <p>status: {status}</p>
 
-      {profile ? (
+      <p><strong>Status:</strong> {status}</p>
+
+      {profile && (
         <>
-          <h3>Профиль (проверено backend)</h3>
-          <pre>{JSON.stringify(profile, null, 2)}</pre>
+          <h3>Профиль пользователя</h3>
+          <pre
+            style={{
+              background: "#f4f4f4",
+              padding: 10,
+              borderRadius: 8,
+              fontSize: 14,
+            }}
+          >
+            {JSON.stringify(profile, null, 2)}
+          </pre>
         </>
-      ) : null}
+      )}
     </div>
   );
 }
