@@ -93,7 +93,6 @@ export default async function handler(req, res) {
 
     const supabase = getSupabase();
 
-    // upsert профиля
     const { data, error } = await supabase
       .from("profiles")
       .upsert(
