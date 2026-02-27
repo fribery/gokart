@@ -1,18 +1,16 @@
 import React, { useEffect, useState } from "react";
 import WebApp from "@twa-dev/sdk";
+import "./App.css";
 
 function App() {
   const [status, setStatus] = useState("Загрузка...");
   const [auth, setAuth] = useState(null);
   const [profile, setProfile] = useState(null);
   const [needsRegistration, setNeedsRegistration] = useState(false);
-
   const [balance, setBalance] = useState(0);
   const [txs, setTxs] = useState([]);
 
   const [form, setForm] = useState({ name: "", phone: "", agree: false });
-
-  // админ форма
   const [admin, setAdmin] = useState({ targetTelegramId: "", amount: "", note: "" });
 
   const inTelegram = Boolean(WebApp.initDataUnsafe?.user) && Boolean(WebApp.initData);
@@ -23,30 +21,21 @@ function App() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    const data = await r.json();
-    return { r, data };
-  }
-
-  async function loadMe() {
-    const { data } = await api("/api/me", { initData: WebApp.initData });
-    if (!data.ok) throw new Error(`${data.error}${data.details ? " | " + data.details : ""}`);
-
-    setAuth(data.auth);
-    setProfile(data.profile);
-    setNeedsRegistration(Boolean(data.needsRegistration));
-    setBalance(Number(data.balance || 0));
-  }
-
-  async function loadTxs() {
-    const { data } = await api("/api/transactions", { initData: WebApp.initData, limit: 30 });
-    if (!data.ok) throw new Error(`${data.error}${data.details ? " | " + data.details : ""}`);
-    setTxs(Array.isArray(data.items) ? data.items : []);
+    return r.json();
   }
 
   async function refreshAll() {
     setStatus("Обновление...");
-    await loadMe();
-    await loadTxs();
+    const me = await api("/api/me", { initData: WebApp.initData });
+    if (!me.ok) throw new Error(me.error);
+
+    setAuth(me.auth);
+    setProfile(me.profile);
+    setNeedsRegistration(me.needsRegistration);
+    setBalance(me.balance || 0);
+
+    const tx = await api("/api/transactions", { initData: WebApp.initData, limit: 30 });
+    if (tx.ok) setTxs(tx.items || []);
     setStatus("Готово");
   }
 
@@ -57,250 +46,180 @@ function App() {
     } catch {}
 
     if (!inTelegram) {
-      setStatus("Открыто в браузере ⚠️");
+      setStatus("Открой приложение в Telegram");
       return;
     }
 
     refreshAll().catch((e) => setStatus("Ошибка: " + String(e?.message || e)));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const onRegChange = (key) => (e) => {
-    const value = key === "agree" ? e.target.checked : e.target.value;
-    setForm((p) => ({ ...p, [key]: value }));
-  };
-
-  const canRegister =
-    form.agree && form.name.trim().length >= 2 && form.phone.trim().length >= 8;
-
-  async function submitRegister() {
-    if (!canRegister) return;
-
-    try {
-      setStatus("Сохраняем регистрацию...");
-      const { data } = await api("/api/register", {
-        initData: WebApp.initData,
-        name: form.name,
-        phone: form.phone,
-        agree: form.agree,
-      });
-
-      if (!data.ok) {
-        setStatus(`Ошибка регистрации: ${data.error}${data.details ? " | " + data.details : ""}`);
-        return;
-      }
-
-      await refreshAll();
-      try { WebApp.showPopup({ title: "Готово", message: "Регистрация сохранена" }); } catch {}
-    } catch (e) {
-      setStatus("Ошибка: " + String(e?.message || e));
-    }
-  }
-
-  const onAdminChange = (key) => (e) => setAdmin((p) => ({ ...p, [key]: e.target.value }));
-
-  async function adminEarn() {
-    try {
-      setStatus("Админ: начисление...");
-      const { data } = await api("/api/admin/earn", {
-        initData: WebApp.initData,
-        targetTelegramId: Number(admin.targetTelegramId),
-        amount: Number(admin.amount),
-        note: admin.note,
-      });
-
-      if (!data.ok) {
-        setStatus(`Ошибка: ${data.error}${data.details ? " | " + data.details : ""}${data.balance != null ? " | balance=" + data.balance : ""}`);
-        return;
-      }
-
-      await refreshAll();
-      setStatus("Готово");
-    } catch (e) {
-      setStatus("Ошибка: " + String(e?.message || e));
-    }
-  }
-
-  async function adminSpend() {
-    try {
-      setStatus("Админ: списание...");
-      const { data } = await api("/api/admin/spend", {
-        initData: WebApp.initData,
-        targetTelegramId: Number(admin.targetTelegramId),
-        amount: Number(admin.amount),
-        note: admin.note,
-      });
-
-      if (!data.ok) {
-        setStatus(`Ошибка: ${data.error}${data.details ? " | " + data.details : ""}${data.balance != null ? " | balance=" + data.balance : ""}`);
-        return;
-      }
-
-      await refreshAll();
-      setStatus("Готово");
-    } catch (e) {
-      setStatus("Ошибка: " + String(e?.message || e));
-    }
-  }
 
   if (!inTelegram) {
     return (
-      <div style={{ padding: 20, fontFamily: "system-ui" }}>
-        <h1>GoKart</h1>
-        <p>{status}</p>
-        <p style={{ opacity: 0.8 }}>Открой приложение в Telegram через бота.</p>
+      <div className="page">
+        <h1 className="title">GoKart</h1>
+        <p className="muted">{status}</p>
       </div>
     );
   }
 
   if (needsRegistration) {
+    const canRegister =
+      form.agree && form.name.trim().length >= 2 && form.phone.trim().length >= 8;
+
     return (
-      <div style={{ padding: 20, fontFamily: "system-ui" }}>
-        <h1>Регистрация</h1>
-        <p style={{ opacity: 0.85 }}>Заполни данные — сохраним в Supabase.</p>
+      <div className="page">
+        <h1 className="title">Регистрация</h1>
 
-        <div style={{ marginTop: 16 }}>
-          <label style={{ display: "block", fontSize: 14, marginBottom: 6 }}>Имя</label>
+        <div className="card">
           <input
+            className="input"
+            placeholder="Имя"
             value={form.name}
-            onChange={onRegChange("name")}
-            style={{ width: "100%", padding: 12, borderRadius: 12, border: "1px solid #ddd" }}
+            onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
           />
-        </div>
 
-        <div style={{ marginTop: 12 }}>
-          <label style={{ display: "block", fontSize: 14, marginBottom: 6 }}>Телефон</label>
+          <div className="gap" />
+
           <input
+            className="input"
+            placeholder="Телефон"
             value={form.phone}
-            onChange={onRegChange("phone")}
-            inputMode="tel"
-            style={{ width: "100%", padding: 12, borderRadius: 12, border: "1px solid #ddd" }}
+            onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
           />
+
+          <div className="gap" />
+
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={form.agree}
+              onChange={(e) => setForm((p) => ({ ...p, agree: e.target.checked }))}
+            />
+            <span>Согласен с правилами</span>
+          </label>
+
+          <div className="gap-lg" />
+
+          <button
+            className={`btn btn-primary ${canRegister ? "" : "btn-disabled"}`}
+            disabled={!canRegister}
+            onClick={async () => {
+              setStatus("Сохраняем...");
+              const r = await api("/api/register", { initData: WebApp.initData, ...form });
+              if (!r.ok) return setStatus(r.error);
+              await refreshAll();
+            }}
+          >
+            Зарегистрироваться
+          </button>
         </div>
 
-        <label style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 12, fontSize: 14 }}>
-          <input type="checkbox" checked={form.agree} onChange={onRegChange("agree")} />
-          Согласен с правилами программы лояльности
-        </label>
-
-        <button
-          onClick={submitRegister}
-          disabled={!canRegister}
-          style={{
-            marginTop: 16,
-            width: "100%",
-            padding: "12px 14px",
-            borderRadius: 12,
-            border: "none",
-            background: canRegister ? "black" : "#999",
-            color: "white",
-            cursor: canRegister ? "pointer" : "not-allowed",
-            fontSize: 16,
-            fontWeight: 600,
-          }}
-        >
-          Зарегистрироваться
-        </button>
-
-        <p style={{ marginTop: 12, fontSize: 12, opacity: 0.8 }}>status: {status}</p>
+        <div className="status">{status}</div>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: 20, fontFamily: "system-ui" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
-        <h1 style={{ margin: 0 }}>GoKart</h1>
-        <button
-          onClick={() => refreshAll().catch((e) => setStatus("Ошибка: " + String(e?.message || e)))}
-          style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #ddd", background: "white" }}
-        >
+    <div className="page">
+      <div className="topbar">
+        <h1 className="title">GoKart</h1>
+        <button className="btn btn-secondary" onClick={refreshAll}>
           Обновить
         </button>
       </div>
 
-      <p style={{ marginTop: 10 }}>
-        Привет, {profile?.name || auth?.firstName || "гость"} 👋
-      </p>
-
-      <div style={{ marginTop: 12, padding: 12, borderRadius: 12, background: "#f4f4f4" }}>
-        <div style={{ fontSize: 14, opacity: 0.8 }}>Баланс</div>
-        <div style={{ fontSize: 28, fontWeight: 700 }}>{balance} баллов</div>
+      <div className="card balance-card">
+        <div className="muted">Баланс</div>
+        <div className="balance">{balance} баллов</div>
       </div>
 
-      <div style={{ marginTop: 16 }}>
-        <h3 style={{ marginBottom: 8 }}>История</h3>
+      <section className="section">
+        <h3 className="section-title">История</h3>
+
         {txs.length === 0 ? (
-          <div style={{ padding: 12, borderRadius: 12, background: "#f4f4f4", opacity: 0.8 }}>
-            Пока нет операций
-          </div>
+          <div className="card muted">Пока нет операций</div>
         ) : (
-          <div style={{ display: "grid", gap: 8 }}>
+          <div className="list">
             {txs.map((t) => (
-              <div key={t.id} style={{ padding: 12, borderRadius: 12, background: "#f4f4f4" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                  <b>{t.type}</b>
-                  <b>{t.amount > 0 ? `+${t.amount}` : t.amount}</b>
+              <div key={t.id} className="card tx">
+                <div>
+                  <div className="tx-type">{t.type}</div>
+                  <div className="tx-date">{new Date(t.created_at).toLocaleString()}</div>
                 </div>
-                <div style={{ fontSize: 12, opacity: 0.75, marginTop: 4 }}>
-                  {new Date(t.created_at).toLocaleString()}
+
+                <div className={`tx-amount ${t.amount > 0 ? "pos" : "neg"}`}>
+                  {t.amount > 0 ? `+${t.amount}` : t.amount}
                 </div>
-                {t.note ? <div style={{ fontSize: 12, opacity: 0.8, marginTop: 6 }}>{t.note}</div> : null}
               </div>
             ))}
           </div>
         )}
-      </div>
+      </section>
 
-      {auth?.isAdmin ? (
-        <div style={{ marginTop: 18, padding: 12, borderRadius: 12, background: "#f4f4f4" }}>
-          <h3 style={{ marginTop: 0 }}>Админ</h3>
+      {auth?.isAdmin && (
+        <section className="section">
+          <h3 className="section-title">Админ панель</h3>
 
-          <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 10 }}>
-            Пока просто вводим target telegramId (позже сделаем поиск/QR).
-          </div>
+          <div className="card">
+            <div className="hint">
+              Пока вводим target telegramId вручную (позже добавим поиск/QR).
+            </div>
 
-          <div style={{ display: "grid", gap: 10 }}>
+            <div className="gap" />
+
             <input
+              className="input"
+              placeholder="telegramId клиента"
               value={admin.targetTelegramId}
-              onChange={onAdminChange("targetTelegramId")}
-              placeholder="telegramId клиента (например 589918672)"
-              inputMode="numeric"
-              style={{ width: "100%", padding: 12, borderRadius: 12, border: "1px solid #ddd" }}
-            />
-            <input
-              value={admin.amount}
-              onChange={onAdminChange("amount")}
-              placeholder="Сумма (например 50)"
-              inputMode="numeric"
-              style={{ width: "100%", padding: 12, borderRadius: 12, border: "1px solid #ddd" }}
-            />
-            <input
-              value={admin.note}
-              onChange={onAdminChange("note")}
-              placeholder="Комментарий (опционально)"
-              style={{ width: "100%", padding: 12, borderRadius: 12, border: "1px solid #ddd" }}
+              onChange={(e) => setAdmin((p) => ({ ...p, targetTelegramId: e.target.value }))}
             />
 
-            <div style={{ display: "flex", gap: 10 }}>
+            <div className="gap" />
+
+            <input
+              className="input"
+              placeholder="Сумма"
+              value={admin.amount}
+              onChange={(e) => setAdmin((p) => ({ ...p, amount: e.target.value }))}
+            />
+
+            <div className="gap" />
+
+            <input
+              className="input"
+              placeholder="Комментарий (опционально)"
+              value={admin.note}
+              onChange={(e) => setAdmin((p) => ({ ...p, note: e.target.value }))}
+            />
+
+            <div className="gap-lg" />
+
+            <div className="row">
               <button
-                onClick={adminEarn}
-                style={{ flex: 1, padding: "12px 14px", borderRadius: 12, border: "none", background: "black", color: "white" }}
+                className="btn btn-primary"
+                onClick={async () => {
+                  await api("/api/admin/earn", { initData: WebApp.initData, ...admin });
+                  await refreshAll();
+                }}
               >
                 Начислить
               </button>
+
               <button
-                onClick={adminSpend}
-                style={{ flex: 1, padding: "12px 14px", borderRadius: 12, border: "1px solid #ddd", background: "white" }}
+                className="btn btn-secondary"
+                onClick={async () => {
+                  await api("/api/admin/spend", { initData: WebApp.initData, ...admin });
+                  await refreshAll();
+                }}
               >
                 Списать
               </button>
             </div>
           </div>
-        </div>
-      ) : null}
+        </section>
+      )}
 
-      <p style={{ marginTop: 14, fontSize: 12, opacity: 0.75 }}>status: {status}</p>
+      <div className="status">{status}</div>
     </div>
   );
 }
