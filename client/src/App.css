@@ -33,21 +33,20 @@ body {
 
 .page {
   min-height: 100vh;
-  min-height: 100dvh; /* iOS/Android современный viewport */
+  min-height: 100dvh;
   background: var(--bg);
 
-  /* Центруем контент и делаем “мобильную колонку” */
-  max-width: 520px;
-  margin: 0 auto;
-
-  /* Safe area + комфортные отступы */
-  padding: 20px;
-  padding-top: calc(20px + env(safe-area-inset-top));
-  padding-left: calc(16px + env(safe-area-inset-left));
-  padding-right: calc(16px + env(safe-area-inset-right));
-
-  /* место под bottom nav */
+  /* safe area */
+  padding-top: calc(16px + env(safe-area-inset-top));
+  padding-left: calc(12px + env(safe-area-inset-left));
+  padding-right: calc(12px + env(safe-area-inset-right));
   padding-bottom: calc(110px + env(safe-area-inset-bottom));
+}
+
+.container {
+  width: 100%;
+  margin: 0 auto;
+  max-width: 520px; /* на телефоне всё равно 100%, на планшете/десктопе будет ограничение */
 }
 
 .title {
@@ -76,6 +75,14 @@ body {
   font-size: 32px;
   font-weight: 800;
   margin-top: 6px;
+}
+
+.card {
+  width: 100%;
+}
+.section,
+.list {
+  width: 100%;
 }
 
 .section { margin-top: 24px; }

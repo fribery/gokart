@@ -46,7 +46,6 @@ function App() {
     try {
       WebApp.ready();
       WebApp.expand();
-      WebApp.requestFullscreen?.();
     } catch {}
 
     if (!inTelegram) {
@@ -151,6 +150,7 @@ function App() {
 
   return (
     <div className="page">
+      <div className="container">
       <div className="topbar">
         <h1 className="title">GoKart</h1>
         <button className="btn btn-secondary btn-small" onClick={() => refreshAll().catch(()=>{})}>
@@ -262,6 +262,7 @@ function App() {
 </div>
 
       <div className="status">{status}</div>
+      </div>
     </div>
   );
 }
