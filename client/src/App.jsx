@@ -4,6 +4,7 @@ import WebApp from "@twa-dev/sdk";
 function App() {
   const [status, setStatus] = useState("Инициализация...");
   const [profile, setProfile] = useState(null);
+  const [rawResponse, setRawResponse] = useState("");
 
   useEffect(() => {
     async function init() {
@@ -19,7 +20,7 @@ function App() {
           return;
         }
 
-        setStatus("Авторизация через Telegram...");
+        setStatus("Инициализация с Telegram...");
 
         const response = await fetch("/api/auth/telegram", {
           method: "POST",
@@ -29,10 +30,19 @@ function App() {
           body: JSON.stringify({ initData }),
         });
 
-        const data = await response.json();
+        const text = await response.text();
+        setRawResponse(text);
+
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch (e) {
+          setStatus(`Сервер вернул НЕ JSON (HTTP ${response.status})`);
+          return;
+        }
 
         if (!data.ok) {
-          setStatus("Ошибка авторизации: " + data.error);
+          setStatus(`Ошибка авторизации (HTTP ${response.status}): ${data.error}`);
           return;
         }
 
@@ -49,20 +59,37 @@ function App() {
   return (
     <div style={{ padding: 20, fontFamily: "system-ui" }}>
       <h1>GoKart Mini App</h1>
-      <p>Status: {status}</p>
+
+      <p><strong>Status:</strong> {status}</p>
 
       {profile && (
-        <pre
-          style={{
-            background: "#f4f4f4",
-            padding: 10,
-            borderRadius: 8,
-            fontSize: 14,
-          }}
-        >
-          {JSON.stringify(profile, null, 2)}
-        </pre>
+        <>
+          <h3>Профиль пользователя</h3>
+          <pre
+            style={{
+              background: "#f4f4f4",
+              padding: 10,
+              borderRadius: 8,
+              fontSize: 14,
+            }}
+          >
+            {JSON.stringify(profile, null, 2)}
+          </pre>
+        </>
       )}
+
+      <h3>Raw API response</h3>
+      <pre
+        style={{
+          background: "#f4f4f4",
+          padding: 10,
+          borderRadius: 8,
+          fontSize: 12,
+          whiteSpace: "pre-wrap",
+        }}
+      >
+        {rawResponse}
+      </pre>
     </div>
   );
 }
