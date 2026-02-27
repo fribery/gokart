@@ -1,6 +1,8 @@
 import crypto from "crypto";
 import { createClient } from "@supabase/supabase-js";
 
+const REG_BONUS = 200;
+
 function getSupabase() {
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -83,30 +85,59 @@ export default async function handler(req, res) {
     }
 
     let user = null;
-    try {
-      user = check.data.user ? JSON.parse(check.data.user) : null;
-    } catch {}
+    try { user = check.data.user ? JSON.parse(check.data.user) : null; } catch {}
 
     if (!user?.id) return res.status(400).end(JSON.stringify({ ok: false, error: "NO_USER" }));
 
     const telegramId = user.id;
-
     const supabase = getSupabase();
 
-    const { data, error } = await supabase
+    // Был ли профиль до регистрации?
+    const { data: existedProfile, error: existedErr } = await supabase
       .from("profiles")
-      .upsert(
-        { telegram_id: telegramId, name, phone },
-        { onConflict: "telegram_id" }
-      )
+      .select("telegram_id")
+      .eq("telegram_id", telegramId)
+      .maybeSingle();
+
+    if (existedErr) {
+      return res.status(500).end(JSON.stringify({ ok: false, error: "SUPABASE_ERROR", details: existedErr.message }));
+    }
+
+    const isFirstRegistration = !existedProfile;
+
+    // upsert профиля
+    const { data: profile, error: profErr } = await supabase
+      .from("profiles")
+      .upsert({ telegram_id: telegramId, name, phone }, { onConflict: "telegram_id" })
       .select("telegram_id, name, phone, created_at")
       .single();
 
-    if (error) {
-      return res.status(500).end(JSON.stringify({ ok: false, error: "SUPABASE_ERROR", details: error.message }));
+    if (profErr) {
+      return res.status(500).end(JSON.stringify({ ok: false, error: "SUPABASE_ERROR", details: profErr.message }));
     }
 
-    return res.status(200).end(JSON.stringify({ ok: true, profile: data }));
+    // Бонус 200 только один раз
+    let bonusTx = null;
+    if (isFirstRegistration) {
+      const ref = `REG_BONUS:${telegramId}`;
+      const { data: tx, error: txErr } = await supabase
+        .from("transactions")
+        .insert({
+          telegram_id: telegramId,
+          type: "EARN",
+          amount: REG_BONUS,
+          note: "Бонус за регистрацию",
+          ref,
+        })
+        .select("id, telegram_id, type, amount, note, created_at, ref")
+        .single();
+
+      // если вдруг гонка/дубль — unique index по ref, Supabase вернёт ошибку
+      // это не критично: просто считаем, что бонус уже есть
+      if (!txErr) bonusTx = tx;
+    }
+
+    return res.status(200).end(JSON.stringify({ ok: true, profile, bonusTx }));
   } catch (err) {
     return res.status(500).end(
       JSON.stringify({ ok: false, error: "INTERNAL_ERROR", details: String(err?.message || err) })

@@ -140,3 +140,77 @@ body {
   font-size: 12px;
   color: var(--muted);
 }
+
+.btn-small {
+  width: auto;
+  padding: 10px 12px;
+  border-radius: 12px;
+}
+
+.tabs {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.tab {
+  flex: 1;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: white;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tab.active {
+  background: var(--primary);
+  color: var(--primaryText);
+  border-color: var(--primary);
+}
+
+.row-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.strong {
+  font-weight: 700;
+}
+
+.tx-note {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.qrWrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px dashed var(--border);
+}
+
+.qrImg {
+  width: 260px;
+  height: 260px;
+  border-radius: 12px;
+}
+
+.mono {
+  margin-top: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 11px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: #fafafa;
+  border: 1px solid var(--border);
+  padding: 10px;
+  border-radius: 12px;
+}

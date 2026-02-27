@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import WebApp from "@twa-dev/sdk";
+import QRCode from "qrcode";
 import "./App.css";
 
 function App() {
@@ -10,8 +11,9 @@ function App() {
   const [balance, setBalance] = useState(0);
   const [txs, setTxs] = useState([]);
 
+  const [tab, setTab] = useState("profile"); // profile | history | qr
+
   const [form, setForm] = useState({ name: "", phone: "", agree: false });
-  const [admin, setAdmin] = useState({ targetTelegramId: "", amount: "", note: "" });
 
   const inTelegram = Boolean(WebApp.initDataUnsafe?.user) && Boolean(WebApp.initData);
 
@@ -27,15 +29,16 @@ function App() {
   async function refreshAll() {
     setStatus("Обновление...");
     const me = await api("/api/me", { initData: WebApp.initData });
-    if (!me.ok) throw new Error(me.error);
+    if (!me.ok) throw new Error(`${me.error}${me.details ? " | " + me.details : ""}`);
 
     setAuth(me.auth);
     setProfile(me.profile);
-    setNeedsRegistration(me.needsRegistration);
-    setBalance(me.balance || 0);
+    setNeedsRegistration(Boolean(me.needsRegistration));
+    setBalance(Number(me.balance || 0));
 
-    const tx = await api("/api/transactions", { initData: WebApp.initData, limit: 30 });
+    const tx = await api("/api/transactions", { initData: WebApp.initData, limit: 50 });
     if (tx.ok) setTxs(tx.items || []);
+
     setStatus("Готово");
   }
 
@@ -52,6 +55,30 @@ function App() {
 
     refreshAll().catch((e) => setStatus("Ошибка: " + String(e?.message || e)));
   }, []);
+
+  // QR генерация (пока статично)
+  const qrPayload = useMemo(() => {
+    if (!auth?.telegramId) return null;
+    // На будущее: будем генерировать одноразовый токен на сервере
+    return JSON.stringify({
+      v: 1,
+      telegramId: auth.telegramId,
+      ts: Date.now(),
+      kind: "gokart_user",
+    });
+  }, [auth?.telegramId]);
+
+  const [qrDataUrl, setQrDataUrl] = useState("");
+  useEffect(() => {
+    let cancelled = false;
+    async function make() {
+      if (!qrPayload) return;
+      const url = await QRCode.toDataURL(qrPayload, { margin: 1, width: 280 });
+      if (!cancelled) setQrDataUrl(url);
+    }
+    make().catch(() => {});
+    return () => { cancelled = true; };
+  }, [qrPayload]);
 
   if (!inTelegram) {
     return (
@@ -108,6 +135,8 @@ function App() {
               const r = await api("/api/register", { initData: WebApp.initData, ...form });
               if (!r.ok) return setStatus(r.error);
               await refreshAll();
+              // Показать бонус красиво
+              try { WebApp.showPopup({ title: "Готово", message: "Регистрация сохранена. +200 баллов 🎁" }); } catch {}
             }}
           >
             Зарегистрироваться
@@ -123,97 +152,95 @@ function App() {
     <div className="page">
       <div className="topbar">
         <h1 className="title">GoKart</h1>
-        <button className="btn btn-secondary" onClick={refreshAll}>
+        <button className="btn btn-secondary btn-small" onClick={() => refreshAll().catch(()=>{})}>
           Обновить
         </button>
       </div>
 
-      <div className="card balance-card">
-        <div className="muted">Баланс</div>
-        <div className="balance">{balance} баллов</div>
+      <div className="tabs">
+        <button className={`tab ${tab === "profile" ? "active" : ""}`} onClick={() => setTab("profile")}>
+          Профиль
+        </button>
+        <button className={`tab ${tab === "history" ? "active" : ""}`} onClick={() => setTab("history")}>
+          История
+        </button>
+        <button className={`tab ${tab === "qr" ? "active" : ""}`} onClick={() => setTab("qr")}>
+          QR
+        </button>
       </div>
 
-      <section className="section">
-        <h3 className="section-title">История</h3>
-
-        {txs.length === 0 ? (
-          <div className="card muted">Пока нет операций</div>
-        ) : (
-          <div className="list">
-            {txs.map((t) => (
-              <div key={t.id} className="card tx">
-                <div>
-                  <div className="tx-type">{t.type}</div>
-                  <div className="tx-date">{new Date(t.created_at).toLocaleString()}</div>
-                </div>
-
-                <div className={`tx-amount ${t.amount > 0 ? "pos" : "neg"}`}>
-                  {t.amount > 0 ? `+${t.amount}` : t.amount}
-                </div>
-              </div>
-            ))}
+      {tab === "profile" && (
+        <>
+          <div className="card balance-card">
+            <div className="muted">Баланс</div>
+            <div className="balance">{balance} баллов</div>
           </div>
-        )}
-      </section>
 
-      {auth?.isAdmin && (
+          <div className="card" style={{ marginTop: 14 }}>
+            <div className="row-between">
+              <div className="muted">Имя</div>
+              <div className="strong">{profile?.name || "—"}</div>
+            </div>
+            <div className="row-between" style={{ marginTop: 10 }}>
+              <div className="muted">Телефон</div>
+              <div className="strong">{profile?.phone || "—"}</div>
+            </div>
+            <div className="row-between" style={{ marginTop: 10 }}>
+              <div className="muted">Telegram</div>
+              <div className="strong">@{auth?.username || "—"}</div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {tab === "history" && (
         <section className="section">
-          <h3 className="section-title">Админ панель</h3>
+          <h3 className="section-title">История операций</h3>
+
+          {txs.length === 0 ? (
+            <div className="card muted">Пока нет операций</div>
+          ) : (
+            <div className="list">
+              {txs.map((t) => (
+                <div key={t.id} className="card tx">
+                  <div>
+                    <div className="tx-type">
+                      {t.type === "EARN" ? "Начисление" : t.type === "SPEND" ? "Списание" : "Корректировка"}
+                    </div>
+                    <div className="tx-date">{new Date(t.created_at).toLocaleString()}</div>
+                    {t.note ? <div className="tx-note">{t.note}</div> : null}
+                  </div>
+
+                  <div className={`tx-amount ${t.amount > 0 ? "pos" : "neg"}`}>
+                    {t.amount > 0 ? `+${t.amount}` : t.amount}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {tab === "qr" && (
+        <section className="section">
+          <h3 className="section-title">Ваш QR-код</h3>
 
           <div className="card">
             <div className="hint">
-              Пока вводим target telegramId вручную (позже добавим поиск/QR).
+              Админ в будущем сможет отсканировать QR и списать баллы. Пока код содержит ваш telegramId.
             </div>
 
-            <div className="gap" />
+            <div className="qrWrap">
+              {qrDataUrl ? (
+                <img className="qrImg" src={qrDataUrl} alt="QR" />
+              ) : (
+                <div className="muted">Генерируем QR...</div>
+              )}
+            </div>
 
-            <input
-              className="input"
-              placeholder="telegramId клиента"
-              value={admin.targetTelegramId}
-              onChange={(e) => setAdmin((p) => ({ ...p, targetTelegramId: e.target.value }))}
-            />
-
-            <div className="gap" />
-
-            <input
-              className="input"
-              placeholder="Сумма"
-              value={admin.amount}
-              onChange={(e) => setAdmin((p) => ({ ...p, amount: e.target.value }))}
-            />
-
-            <div className="gap" />
-
-            <input
-              className="input"
-              placeholder="Комментарий (опционально)"
-              value={admin.note}
-              onChange={(e) => setAdmin((p) => ({ ...p, note: e.target.value }))}
-            />
-
-            <div className="gap-lg" />
-
-            <div className="row">
-              <button
-                className="btn btn-primary"
-                onClick={async () => {
-                  await api("/api/admin/earn", { initData: WebApp.initData, ...admin });
-                  await refreshAll();
-                }}
-              >
-                Начислить
-              </button>
-
-              <button
-                className="btn btn-secondary"
-                onClick={async () => {
-                  await api("/api/admin/spend", { initData: WebApp.initData, ...admin });
-                  await refreshAll();
-                }}
-              >
-                Списать
-              </button>
+            <div className="hint" style={{ marginTop: 10 }}>
+              Payload:
+              <div className="mono">{qrPayload || ""}</div>
             </div>
           </div>
         </section>
