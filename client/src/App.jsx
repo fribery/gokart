@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import WebApp from "@twa-dev/sdk";
 
 function App() {
@@ -6,16 +6,14 @@ function App() {
   const [profile, setProfile] = useState(null);
 
   useEffect(() => {
-    const init = async () => {
+    async function init() {
       try {
-        // Инициализация Telegram WebApp
         WebApp.ready();
         WebApp.expand();
 
         const initData = WebApp.initData;
         const unsafeUser = WebApp.initDataUnsafe?.user;
 
-        // Если открыто не из Telegram
         if (!unsafeUser || !initData) {
           setStatus("Открыто в браузере ⚠️");
           return;
@@ -23,7 +21,6 @@ function App() {
 
         setStatus("Авторизация через Telegram...");
 
-        // Отправляем initData на backend (Vercel API)
         const response = await fetch("/api/auth/telegram", {
           method: "POST",
           headers: {
@@ -35,17 +32,16 @@ function App() {
         const data = await response.json();
 
         if (!data.ok) {
-          setStatus("Ошибка авторизации: " + (data.error || "unknown"));
+          setStatus("Ошибка авторизации: " + data.error);
           return;
         }
 
         setProfile(data.profile);
         setStatus("Вы в Telegram ✅ (проверено backend)");
-      } catch (error) {
-        console.error(error);
-        setStatus("Ошибка: " + error.message);
+      } catch (err) {
+        setStatus("Ошибка: " + (err?.message || String(err)));
       }
-    };
+    }
 
     init();
   }, []);
@@ -53,23 +49,19 @@ function App() {
   return (
     <div style={{ padding: 20, fontFamily: "system-ui" }}>
       <h1>GoKart Mini App</h1>
-
-      <p><strong>Status:</strong> {status}</p>
+      <p>Status: {status}</p>
 
       {profile && (
-        <>
-          <h3>Профиль пользователя</h3>
-          <pre
-            style={{
-              background: "#f4f4f4",
-              padding: 10,
-              borderRadius: 8,
-              fontSize: 14,
-            }}
-          >
-            {JSON.stringify(profile, null, 2)}
-          </pre>
-        </>
+        <pre
+          style={{
+            background: "#f4f4f4",
+            padding: 10,
+            borderRadius: 8,
+            fontSize: 14,
+          }}
+        >
+          {JSON.stringify(profile, null, 2)}
+        </pre>
       )}
     </div>
   );
