@@ -46,6 +46,7 @@ function App() {
     try {
       WebApp.ready();
       WebApp.expand();
+      WebApp.requestFullscreen?.();
     } catch {}
 
     if (!inTelegram) {
