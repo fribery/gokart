@@ -157,18 +157,6 @@ function App() {
         </button>
       </div>
 
-      <div className="tabs">
-        <button className={`tab ${tab === "profile" ? "active" : ""}`} onClick={() => setTab("profile")}>
-          Профиль
-        </button>
-        <button className={`tab ${tab === "history" ? "active" : ""}`} onClick={() => setTab("history")}>
-          История
-        </button>
-        <button className={`tab ${tab === "qr" ? "active" : ""}`} onClick={() => setTab("qr")}>
-          QR
-        </button>
-      </div>
-
       {tab === "profile" && (
         <>
           <div className="card balance-card">
@@ -245,6 +233,32 @@ function App() {
           </div>
         </section>
       )}
+
+      <div className="bottom-nav">
+  <button
+    className={`nav-item ${tab === "profile" ? "active" : ""}`}
+    onClick={() => setTab("profile")}
+  >
+    👤
+    <span>Профиль</span>
+  </button>
+
+  <button
+    className={`nav-item ${tab === "history" ? "active" : ""}`}
+    onClick={() => setTab("history")}
+  >
+    📜
+    <span>История</span>
+  </button>
+
+  <button
+    className={`nav-item ${tab === "qr" ? "active" : ""}`}
+    onClick={() => setTab("qr")}
+  >
+    📱
+    <span>QR</span>
+  </button>
+</div>
 
       <div className="status">{status}</div>
     </div>
