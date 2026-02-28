@@ -22,7 +22,7 @@ function App() {
 
   const [admin, setAdmin] = useState({
   targetTelegramId: "",
-  amount: "",
+  orderAmount: "",
   note: "",
   qrPayload: "",
   });
@@ -227,6 +227,77 @@ useEffect(() => {
     });
   } catch (e) {
     setStatus("Ошибка сканера: " + String(e?.message || e));
+  }
+}
+
+async function adminEarnAuto() {
+  try {
+    setStatus("Админ: начисляем кешбек...");
+
+    const orderAmount = Number(admin.orderAmount);
+    if (!Number.isFinite(orderAmount) || orderAmount <= 0) {
+      setStatus("Введите сумму заказа (₽)");
+      return;
+    }
+
+    const payload = {
+      initData: WebApp.initData,
+      orderAmount,
+      note: admin.note,
+    };
+
+    // ✅ цель: QR или ID
+    if (admin.qrPayload) payload.qrPayload = admin.qrPayload;
+    else payload.targetTelegramId = Number(admin.targetTelegramId);
+
+    const r = await api("/api/admin/order", payload);
+
+    if (!r.ok) {
+      setStatus(`Ошибка: ${r.error}${r.details ? " | " + r.details : ""}`);
+      return;
+    }
+
+    // QR одноразовый — очищаем
+    setAdmin((p) => ({ ...p, qrPayload: "" }));
+
+    await refreshAll();
+    setStatus(
+      `Готово ✅ ${r.league?.name || ""} ${(r.league?.percent * 100 || 0).toFixed(
+        0
+      )}% → +${r.tx?.amount || 0} баллов`
+    );
+  } catch (e) {
+    setStatus("Ошибка: " + String(e?.message || e));
+  }
+}
+
+async function adminCashback() {
+  try {
+    setStatus("Админ: начисляем кешбек...");
+
+    const payload = {
+      initData: WebApp.initData,
+      orderAmount: Number(admin.orderAmount),
+      note: admin.note,
+    };
+
+    if (admin.qrPayload) payload.qrPayload = admin.qrPayload;
+    else payload.targetTelegramId = Number(admin.targetTelegramId);
+
+    const r = await api("/api/admin/order", payload);
+
+    if (!r.ok) {
+      setStatus(`Ошибка: ${r.error}${r.details ? " | " + r.details : ""}`);
+      return;
+    }
+
+    setAdmin((p) => ({ ...p, qrPayload: "" })); // QR одноразовый
+    await refreshAll();
+    setStatus(
+      `Готово ✅ ${r.league?.name || ""} ${(r.league?.percent * 100 || 0).toFixed(0)}% → +${r.tx?.amount || 0} баллов`
+    );
+  } catch (e) {
+    setStatus("Ошибка: " + String(e?.message || e));
   }
 }
 
@@ -511,6 +582,10 @@ if (needsRegistration) {
                     <div className="strong">{profile?.phone || "—"}</div>
                   </div>
                   <div className="row-between mt-10">
+                    <div className="muted">Ваш ID</div>
+                    <div className="strong">{profile?.id || "—"}</div>
+                  </div>
+                  <div className="row-between mt-10">
                     <div className="muted">Telegram</div>
                     <div className="strong">@{auth?.username || "—"}</div>
                   </div>
@@ -538,13 +613,13 @@ if (needsRegistration) {
                     </div>
 
                     <div className="field">
-                      <div className="label">Сумма</div>
+                      <div className="label">Сумма заказа (₽)</div>
                       <input
                         className="input"
                         inputMode="numeric"
                         placeholder="например 200"
-                        value={admin.amount}
-                        onChange={onAdminChange("amount")}
+                        value={admin.orderAmount}
+                        onChange={onAdminChange("orderAmount")}
                       />
                     </div>
 
@@ -578,11 +653,8 @@ if (needsRegistration) {
                   )}
 
                     <div className="row">
-                      <button
-                        className="btn btn-primary"
-                        onClick={admin.qrPayload ? adminEarnByQr : adminEarn}
-                      >
-                        {admin.qrPayload ? "+ Начислить по QR" : "+ Начислить по ID"}
+                      <button className="btn btn-primary" onClick={adminEarnAuto}>
+                        {admin.qrPayload ? "Начислить кешбек (QR)" : "Начислить кешбек (ID)"}
                       </button>
                       <button
                         className="btn btn-secondary"
