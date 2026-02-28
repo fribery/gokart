@@ -17,10 +17,14 @@ function App() {
   const phoneRef = useRef(null);
   const [agree, setAgree] = useState(false);
 
+  const [qrPayload, setQrPayload] = useState("");
+  const [qrExpiresAt, setQrExpiresAt] = useState("");
+
   const [admin, setAdmin] = useState({
-    targetTelegramId: "",
-    amount: "",
-    note: "",
+  targetTelegramId: "",
+  amount: "",
+  note: "",
+  qrPayload: "",
   });
 
   const inTelegram = Boolean(WebApp.initDataUnsafe?.user) && Boolean(WebApp.initData);
@@ -66,30 +70,37 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // QR
-  const qrPayload = useMemo(() => {
-    if (!auth?.telegramId) return "";
-    return JSON.stringify({
-      v: 1,
-      telegramId: auth.telegramId,
-      ts: Date.now(),
-      kind: "gokart_user",
-    });
-  }, [auth?.telegramId]);
+async function loadQrToken() {
+  setStatus("Генерируем QR...");
+  const r = await api("/api/qr-token", { initData: WebApp.initData });
+  if (!r.ok) {
+    setStatus(`Ошибка QR: ${r.error}${r.details ? " | " + r.details : ""}`);
+    return;
+  }
+  setQrPayload(r.payload);
+  setQrExpiresAt(r.expiresAt);
+  setStatus("Готово");
+}
 
-  const [qrDataUrl, setQrDataUrl] = useState("");
-  useEffect(() => {
-    let cancelled = false;
-    async function make() {
-      if (!qrPayload) return;
-      const url = await QRCode.toDataURL(qrPayload, { margin: 1, width: 300 });
-      if (!cancelled) setQrDataUrl(url);
-    }
-    make().catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [qrPayload]);
+useEffect(() => {
+  if (!inTelegram) return;
+  if (tab !== "qr") return;
+  loadQrToken().catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [tab]);
+
+const [qrDataUrl, setQrDataUrl] = useState("");
+
+useEffect(() => {
+  let cancelled = false;
+  async function make() {
+    if (!qrPayload) return;
+    const url = await QRCode.toDataURL(qrPayload, { margin: 1, width: 300 });
+    if (!cancelled) setQrDataUrl(url);
+  }
+  make().catch(() => {});
+  return () => { cancelled = true; };
+}, [qrPayload]);
 
   // admin helpers
   const onAdminChange = (key) => (e) =>
@@ -154,6 +165,55 @@ function App() {
       setStatus("Ошибка: " + String(error?.message || error));
     }
   }
+
+  function scanClientQr() {
+  try {
+    if (!WebApp.showScanQrPopup) {
+      setStatus("Сканер QR недоступен в этой версии Telegram");
+      return;
+    }
+
+    WebApp.showScanQrPopup({ text: "Сканируй QR клиента" }, (text) => {
+      const payload = String(text || "").trim();
+      setAdmin((p) => ({ ...p, qrPayload: payload }));
+
+      try { WebApp.closeScanQrPopup(); } catch {}
+      setStatus(payload ? "QR считан ✅" : "QR пустой");
+    });
+  } catch (e) {
+    setStatus("Ошибка сканера: " + String(e?.message || e));
+  }
+}
+
+async function adminSpendByQr() {
+  try {
+    setStatus("Админ: списание по QR...");
+
+    const response = await api("/api/admin/spend-by-qr", {
+      initData: WebApp.initData,
+      qrPayload: admin.qrPayload,
+      amount: Number(admin.amount),
+      note: admin.note,
+    });
+
+    if (!response.ok) {
+      setStatus(
+        `Ошибка: ${response.error}${response.details ? " | " + response.details : ""}${
+          response.balance != null ? " | balance=" + response.balance : ""
+        }`
+      );
+      return;
+    }
+
+    // токен одноразовый — очищаем
+    setAdmin((p) => ({ ...p, qrPayload: "" }));
+
+    await refreshAll();
+    setStatus(`Списано ✅ (клиент ${response.targetTelegramId})`);
+  } catch (e) {
+    setStatus("Ошибка: " + String(e?.message || e));
+  }
+}
 
   // animations
 const screenVariants = {
@@ -383,12 +443,34 @@ if (needsRegistration) {
                       />
                     </div>
 
+                    <div className="gap" />
+
+                  <button className="btn btn-secondary" onClick={scanClientQr}>
+                    Сканировать QR
+                  </button>
+
+                  {admin.qrPayload ? (
+                    <div className="hint" style={{ marginTop: 10 }}>
+                      QR считан:{" "}
+                      <span style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace" }}>
+                        {admin.qrPayload.slice(0, 28)}...
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="hint" style={{ marginTop: 10 }}>
+                      QR не выбран (будет списание по ID)
+                    </div>
+                  )}
+
                     <div className="row">
                       <button className="btn btn-primary" onClick={adminEarn}>
                         + Начислить
                       </button>
-                      <button className="btn btn-secondary" onClick={adminSpend}>
-                        − Списать
+                      <button
+                        className="btn btn-secondary"
+                        onClick={admin.qrPayload ? adminSpendByQr : adminSpend}
+                      >
+                        {admin.qrPayload ? "Списать по QR" : "Списать по ID"}
                       </button>
                     </div>
                   </Card>
@@ -472,9 +554,16 @@ if (needsRegistration) {
                     )}
                   </div>
 
-                  <div className="qrHint">
-                    В будущем заменим на одноразовый защищённый токен (анти-скриншот / анти-подделка).
-                  </div>
+                  <div className="gap" />
+                  <button className="btn btn-secondary" onClick={() => loadQrToken().catch(()=>{})}>
+                    Обновить QR (5 минут)
+                  </button>
+
+                  {qrExpiresAt ? (
+                    <div className="hint" style={{ marginTop: 10 }}>
+                      Действует до: {new Date(qrExpiresAt).toLocaleTimeString()}
+                    </div>
+                  ) : null}
                 </Card>
               </motion.div>
             )}
