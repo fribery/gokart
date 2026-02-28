@@ -134,6 +134,30 @@ useEffect(() => {
     }
   }
 
+  async function adminEarnByQr() {
+  try {
+    setStatus("Админ: начисление по QR...");
+
+    const response = await api("/api/admin/earn-by-qr", {
+      initData: WebApp.initData,
+      qrPayload: admin.qrPayload,
+      amount: Number(admin.amount),
+      note: admin.note,
+    });
+
+    if (!response.ok) {
+      setStatus(`Ошибка: ${response.error}${response.details ? " | " + response.details : ""}`);
+      return;
+    }
+
+    setAdmin((p) => ({ ...p, qrPayload: "" })); // токен одноразовый
+    await refreshAll();
+    setStatus(`Начислено ✅ (клиент ${response.targetTelegramId})`);
+  } catch (e) {
+    setStatus("Ошибка: " + String(e?.message || e));
+  }
+}
+
   async function adminSpend() {
     try {
       setStatus("Админ: списание...");
@@ -463,8 +487,11 @@ if (needsRegistration) {
                   )}
 
                     <div className="row">
-                      <button className="btn btn-primary" onClick={adminEarn}>
-                        + Начислить
+                      <button
+                        className="btn btn-primary"
+                        onClick={admin.qrPayload ? adminEarnByQr : adminEarn}
+                      >
+                        {admin.qrPayload ? "+ Начислить по QR" : "+ Начислить по ID"}
                       </button>
                       <button
                         className="btn btn-secondary"
