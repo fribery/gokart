@@ -65,13 +65,30 @@ body {
   justify-content: space-between;
 }
 
-.logo-placeholder {
+/* Avatar in header */
+.avatar-box {
   width: 44px;
   height: 44px;
   border-radius: 14px;
   background: linear-gradient(135deg, #111, #1a1a1a);
-  border: 1px solid rgba(0,0,0,0.1);
+  border: 1px solid rgba(0,0,0,0.10);
   box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-fallback {
+  color: #fff;
+  font-weight: 900;
+  letter-spacing: 0.2px;
+  font-size: 14px;
 }
 
 /* Когда добавишь логотип — просто заменишь div на img */

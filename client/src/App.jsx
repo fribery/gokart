@@ -259,15 +259,6 @@ function App() {
                   ? `Пилот: ${auth.firstName}`
                   : "Пилот"
               }
-              right={
-                <button
-                  className="btn btn-ghost"
-                  onClick={() => refreshAll().catch(() => {})}
-                  aria-label="refresh"
-                >
-                  ⟳
-                </button>
-              }
             />
           </div>
 
@@ -468,16 +459,32 @@ function App() {
   );
 }
 
-function Header({ subtitle, right }) {
+function Header({ subtitle }) {
+  const tgUser = WebApp.initDataUnsafe?.user;
+  const photoUrl = tgUser?.photo_url || "";
+
+  // Фоллбек: инициалы
+  const initials = (() => {
+    const a = (tgUser?.first_name || "").trim();
+    const b = (tgUser?.last_name || "").trim();
+    const i1 = a ? a[0].toUpperCase() : "";
+    const i2 = b ? b[0].toUpperCase() : "";
+    return (i1 + i2) || (tgUser?.username ? tgUser.username[0].toUpperCase() : "U");
+  })();
+
   return (
     <div className="header-clean">
       <div className="header-inner">
-        {/* Здесь потом будет логотип */}
-        <div className="logo-placeholder" />
-        <div className="header-right">{right}</div>
+        <div className="avatar-box">
+          {photoUrl ? (
+            <img className="avatar-img" src={photoUrl} alt="avatar" />
+          ) : (
+            <div className="avatar-fallback">{initials}</div>
+          )}
+        </div>
       </div>
 
-      {subtitle && <div className="header-subtitle">{subtitle}</div>}
+      {subtitle ? <div className="header-subtitle">{subtitle}</div> : null}
     </div>
   );
 }
