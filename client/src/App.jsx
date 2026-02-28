@@ -154,11 +154,11 @@ function App() {
   }
 
   // animations
-  const screenVariants = {
-    initial: { opacity: 0, y: 10, filter: "blur(2px)" },
-    animate: { opacity: 1, y: 0, filter: "blur(0px)", transition: { duration: 0.22 } },
-    exit: { opacity: 0, y: -8, filter: "blur(2px)", transition: { duration: 0.18 } },
-  };
+const screenVariants = {
+  initial: { opacity: 0, y: 10 },
+  animate: { opacity: 1, y: 0, transition: { duration: 0.22 } },
+  exit: { opacity: 0, y: -8, transition: { duration: 0.18 } },
+};
 
   const Page = ({ children }) => (
     <div className="page">

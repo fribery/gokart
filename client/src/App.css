@@ -141,7 +141,14 @@ body {
   background: var(--card);
   border: 1px solid rgba(10,10,12,0.08);
   box-shadow: var(--shadow);
-  backdrop-filter: blur(10px);
+}
+
+/* iOS Telegram WebView: blur/backdrop-filter ломает фокус инпутов */
+@supports (-webkit-touch-callout: none) {
+  .card {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
 }
 
 .card-balance {
