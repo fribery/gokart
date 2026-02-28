@@ -14,7 +14,12 @@ function App() {
   const [tab, setTab] = useState("profile"); // profile | history | qr
   const [form, setForm] = useState({ name: "", phone: "", agree: false });
 
-  const [admin, setAdmin] = useState({ targetTelegramId: "", amount: "", note: "" });
+  // ✅ admin state — ОДИН раз
+  const [admin, setAdmin] = useState({
+    targetTelegramId: "",
+    amount: "",
+    note: "",
+  });
 
   const inTelegram = Boolean(WebApp.initDataUnsafe?.user) && Boolean(WebApp.initData);
 
@@ -29,6 +34,7 @@ function App() {
 
   async function refreshAll() {
     setStatus("Обновление...");
+
     const me = await api("/api/me", { initData: WebApp.initData });
     if (!me.ok) throw new Error(`${me.error}${me.details ? " | " + me.details : ""}`);
 
@@ -42,26 +48,6 @@ function App() {
 
     setStatus("Готово");
   }
-
-  const onAdminChange = (key) => (e) =>
-  setAdmin((p) => ({ ...p, [key]: e.target.value }));
-
-async function adminEarn() {
-  setStatus("Админ: начисление...");
-  const r = await api("/api/admin/earn", {
-    initData: WebApp.initData,
-    targetTelegramId: Number(admin.targetTelegramId),
-    amount: Number(admin.amount),
-    note: admin.note,
-  });
-
-  if (!r.ok) {
-    setStatus(`Ошибка: ${r.error}${r.details ? " | " + r.details : ""}${r.balance != null ? " | balance=" + r.balance : ""}`);
-    return;
-  }
-
-  await refreshAll();
-  setStatus("Админ: начисление завершено");
 
   useEffect(() => {
     try {
@@ -78,10 +64,15 @@ async function adminEarn() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // QR
+  // --- QR
   const qrPayload = useMemo(() => {
     if (!auth?.telegramId) return "";
-    return JSON.stringify({ v: 1, telegramId: auth.telegramId, ts: Date.now(), kind: "gokart_user" });
+    return JSON.stringify({
+      v: 1,
+      telegramId: auth.telegramId,
+      ts: Date.now(),
+      kind: "gokart_user",
+    });
   }, [auth?.telegramId]);
 
   const [qrDataUrl, setQrDataUrl] = useState("");
@@ -93,10 +84,71 @@ async function adminEarn() {
       if (!cancelled) setQrDataUrl(url);
     }
     make().catch(() => {});
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [qrPayload]);
 
-  // --- UI helpers
+  // --- ADMIN helpers (без хуков внутри!)
+  const onAdminChange = (key) => (e) =>
+    setAdmin((prev) => ({
+      ...prev,
+      [key]: e.target.value,
+    }));
+
+  async function adminEarn() {
+    try {
+      setStatus("Админ: начисление...");
+
+      const response = await api("/api/admin/earn", {
+        initData: WebApp.initData,
+        targetTelegramId: Number(admin.targetTelegramId),
+        amount: Number(admin.amount),
+        note: admin.note,
+      });
+
+      if (!response.ok) {
+        setStatus(
+          `Ошибка: ${response.error}${response.details ? " | " + response.details : ""}`
+        );
+        return;
+      }
+
+      await refreshAll();
+      setStatus("Готово");
+    } catch (error) {
+      setStatus("Ошибка: " + String(error?.message || error));
+    }
+  }
+
+  async function adminSpend() {
+    try {
+      setStatus("Админ: списание...");
+
+      const response = await api("/api/admin/spend", {
+        initData: WebApp.initData,
+        targetTelegramId: Number(admin.targetTelegramId),
+        amount: Number(admin.amount),
+        note: admin.note,
+      });
+
+      if (!response.ok) {
+        setStatus(
+          `Ошибка: ${response.error}${response.details ? " | " + response.details : ""}${
+            response.balance != null ? " | balance=" + response.balance : ""
+          }`
+        );
+        return;
+      }
+
+      await refreshAll();
+      setStatus("Готово");
+    } catch (error) {
+      setStatus("Ошибка: " + String(error?.message || error));
+    }
+  }
+
+  // --- Page wrapper
   const Page = ({ children }) => (
     <div className="page">
       <div className="container">
@@ -157,10 +209,18 @@ async function adminEarn() {
             disabled={!canRegister}
             onClick={async () => {
               setStatus("Сохраняем...");
-              const r = await api("/api/register", { initData: WebApp.initData, ...form });
+              const r = await api("/api/register", {
+                initData: WebApp.initData,
+                ...form,
+              });
               if (!r.ok) return setStatus(r.error);
               await refreshAll();
-              try { WebApp.showPopup({ title: "Готово", message: "Регистрация сохранена. +200 баллов 🎁" }); } catch {}
+              try {
+                WebApp.showPopup({
+                  title: "Готово",
+                  message: "Регистрация сохранена. +200 баллов 🎁",
+                });
+              } catch {}
             }}
           >
             Зарегистрироваться
@@ -178,7 +238,10 @@ async function adminEarn() {
         <div className="content">
           <div className="topbar">
             <h1 className="title">GoKart</h1>
-            <button className="btn btn-secondary btn-small" onClick={() => refreshAll().catch(()=>{})}>
+            <button
+              className="btn btn-secondary btn-small"
+              onClick={() => refreshAll().catch(() => {})}
+            >
               Обновить
             </button>
           </div>
@@ -204,6 +267,58 @@ async function adminEarn() {
                   <div className="strong">@{auth?.username || "—"}</div>
                 </div>
               </div>
+
+              {/* ✅ Админ панель В КОНЦЕ профиля */}
+              {auth?.isAdmin && (
+                <div className="card mt-14">
+                  <h3 className="section-title" style={{ margin: 0 }}>
+                    Админ панель
+                  </h3>
+                  <div className="hint" style={{ marginTop: 8 }}>
+                    Начисление / списание баллов по telegramId клиента.
+                  </div>
+
+                  <div className="gap" />
+
+                  <input
+                    className="input"
+                    placeholder="telegramId клиента"
+                    inputMode="numeric"
+                    value={admin.targetTelegramId}
+                    onChange={onAdminChange("targetTelegramId")}
+                  />
+
+                  <div className="gap" />
+
+                  <input
+                    className="input"
+                    placeholder="Сумма (например 200)"
+                    inputMode="numeric"
+                    value={admin.amount}
+                    onChange={onAdminChange("amount")}
+                  />
+
+                  <div className="gap" />
+
+                  <input
+                    className="input"
+                    placeholder="Комментарий (опционально)"
+                    value={admin.note}
+                    onChange={onAdminChange("note")}
+                  />
+
+                  <div className="gap-lg" />
+
+                  <div className="row">
+                    <button className="btn btn-primary" onClick={adminEarn}>
+                      Начислить
+                    </button>
+                    <button className="btn btn-secondary" onClick={adminSpend}>
+                      Списать
+                    </button>
+                  </div>
+                </div>
+              )}
             </>
           )}
 
@@ -219,9 +334,15 @@ async function adminEarn() {
                     <div key={t.id} className="card tx">
                       <div>
                         <div className="tx-type">
-                          {t.type === "EARN" ? "Начисление" : t.type === "SPEND" ? "Списание" : "Корректировка"}
+                          {t.type === "EARN"
+                            ? "Начисление"
+                            : t.type === "SPEND"
+                            ? "Списание"
+                            : "Корректировка"}
                         </div>
-                        <div className="tx-date">{new Date(t.created_at).toLocaleString()}</div>
+                        <div className="tx-date">
+                          {new Date(t.created_at).toLocaleString()}
+                        </div>
                         {t.note ? <div className="tx-note">{t.note}</div> : null}
                       </div>
 
@@ -259,15 +380,23 @@ async function adminEarn() {
         </div>
       </div>
 
-      {/* bottom nav всегда вне container, чтобы быть full-width */}
       <div className="bottom-nav">
-        <button className={`nav-item ${tab === "profile" ? "active" : ""}`} onClick={() => setTab("profile")}>
+        <button
+          className={`nav-item ${tab === "profile" ? "active" : ""}`}
+          onClick={() => setTab("profile")}
+        >
           👤<span>Профиль</span>
         </button>
-        <button className={`nav-item ${tab === "history" ? "active" : ""}`} onClick={() => setTab("history")}>
+        <button
+          className={`nav-item ${tab === "history" ? "active" : ""}`}
+          onClick={() => setTab("history")}
+        >
           📜<span>История</span>
         </button>
-        <button className={`nav-item ${tab === "qr" ? "active" : ""}`} onClick={() => setTab("qr")}>
+        <button
+          className={`nav-item ${tab === "qr" ? "active" : ""}`}
+          onClick={() => setTab("qr")}
+        >
           📱<span>QR</span>
         </button>
       </div>
