@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import WebApp from "@twa-dev/sdk";
 import QRCode from "qrcode";
 import { AnimatePresence, motion } from "framer-motion";
@@ -13,7 +13,9 @@ function App() {
   const [txs, setTxs] = useState([]);
 
   const [tab, setTab] = useState("profile"); // profile | history | qr
-  const [form, setForm] = useState({ name: "", phone: "", agree: false });
+  const nameRef = useRef(null);
+  const phoneRef = useRef(null);
+  const [agree, setAgree] = useState(false);
 
   const [admin, setAdmin] = useState({
     targetTelegramId: "",
@@ -179,72 +181,100 @@ const screenVariants = {
     );
   }
 
-  if (needsRegistration) {
-    const canRegister =
-      form.agree && form.name.trim().length >= 2 && form.phone.trim().length >= 8;
+if (needsRegistration) {
+  const canRegister = agree; // + можно добавить проверку длины уже при submit
 
-    return (
-      <Page>
-        <Header subtitle="Залетаем в лигу: +200 баллов 🎁" />
+  return (
+    <Page>
+      <Header subtitle="Залетаем в лигу: +200 баллов 🎁" />
 
-        <Card>
-          <div className="field">
-            <div className="label">Имя</div>
-            <input
-              className="input"
-              placeholder="Например, Eugene"
-              value={form.name}
-              onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-            />
-          </div>
+      <Card>
+        <div className="field">
+          <div className="label">Имя</div>
+          <input
+            ref={nameRef}
+            className="input"
+            placeholder="Например, Eugene"
+            autoComplete="name"
+            onFocus={() => {
+              try {
+                WebApp.expand();
+                WebApp.disableVerticalSwipes?.(); // помогает iOS Telegram
+              } catch {}
+            }}
+          />
+        </div>
 
-          <div className="field">
-            <div className="label">Телефон</div>
-            <input
-              className="input"
-              placeholder="+7 999 123-45-67"
-              inputMode="tel"
-              value={form.phone}
-              onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
-            />
-          </div>
+        <div className="field">
+          <div className="label">Телефон</div>
+          <input
+            ref={phoneRef}
+            className="input"
+            placeholder="+7 999 123-45-67"
+            inputMode="tel"
+            autoComplete="tel"
+            onFocus={() => {
+              try {
+                WebApp.expand();
+                WebApp.disableVerticalSwipes?.();
+              } catch {}
+            }}
+          />
+        </div>
 
-          <label className="check">
-            <input
-              type="checkbox"
-              checked={form.agree}
-              onChange={(e) => setForm((p) => ({ ...p, agree: e.target.checked }))}
-            />
-            <span>Согласен с правилами программы</span>
-          </label>
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={agree}
+            onChange={(e) => setAgree(e.target.checked)}
+          />
+          <span>Согласен с правилами программы</span>
+        </label>
 
-          <div className="gap-lg" />
+        <div className="gap-lg" />
 
-          <button
-            className={`btn btn-primary ${canRegister ? "" : "btn-disabled"}`}
-            disabled={!canRegister}
-            onClick={async () => {
+        <button
+          className={`btn btn-primary ${canRegister ? "" : "btn-disabled"}`}
+          disabled={!canRegister}
+          onClick={async () => {
+            try {
+              const name = (nameRef.current?.value || "").trim();
+              const phone = (phoneRef.current?.value || "").trim();
+
+              if (name.length < 2) return setStatus("Введите имя (минимум 2 символа)");
+              if (phone.length < 8) return setStatus("Введите телефон (минимум 8 символов)");
+              if (!agree) return setStatus("Нужно согласие с правилами");
+
               setStatus("Сохраняем...");
-              const r = await api("/api/register", { initData: WebApp.initData, ...form });
+              const r = await api("/api/register", {
+                initData: WebApp.initData,
+                name,
+                phone,
+                agree: true,
+              });
+
               if (!r.ok) return setStatus(r.error);
+
               await refreshAll();
               try {
                 WebApp.showPopup({
                   title: "Готово",
                   message: "Регистрация сохранена. +200 баллов 🎁",
                 });
-                WebApp.hapticFeedback?.notificationOccurred?.("success");
               } catch {}
-            }}
-          >
-            Стартовать
-          </button>
-        </Card>
+            } catch (e) {
+              setStatus("Ошибка: " + String(e?.message || e));
+            }
+          }}
+        >
+          Стартовать
+        </button>
+      </Card>
 
-        <Status status={status} />
-      </Page>
-    );
-  }
+      <Status status={status} />
+    </Page>
+  );
+}
 
   return (
     <div className="page">
