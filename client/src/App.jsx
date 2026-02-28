@@ -337,7 +337,7 @@ if (needsRegistration) {
           <div className="strong">Ребёнок #{idx + 1}</div>
           <button
             type="button"
-            className="btn btn-ghost-small"
+            className="kid-remove"
             onClick={() => removeKid(key)}
           >
             ✕

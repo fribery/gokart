@@ -469,3 +469,32 @@ html {
 .mt-10 { margin-top: 10px; }
 .mt-14 { margin-top: 14px; }
 .strong { font-weight: 950; }
+
+.kid-remove {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+
+  border-radius: 999px;
+  border: 1px solid rgba(0,0,0,0.15);
+  background: rgba(0,0,0,0.05);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 14px;
+  font-weight: 900;
+  cursor: pointer;
+
+  transition: all 0.15s ease;
+}
+
+.kid-remove:active {
+  transform: scale(0.9);
+}
+
+.kid-remove:hover {
+  background: rgba(255, 0, 0, 0.08);
+  border-color: rgba(255, 0, 0, 0.25);
+}
