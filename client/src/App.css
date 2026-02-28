@@ -24,6 +24,10 @@ body {
   background: var(--bg);
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
 /* Layout */
 .page {
   min-height: 100vh;
@@ -278,16 +282,21 @@ body {
   border-radius: 14px;
   border: 1px solid rgba(10,10,12,0.12);
   background: rgba(255,255,255,0.96);
-  font-size: 15px;
   outline: none;
 
-  color: #111;               /* <-- ВОТ ЭТО ВАЖНО */
+  font-size: 16px;     /* КРИТИЧНО для iOS */
+  line-height: 20px;
+  color: #111;
   font-weight: 600;
+
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 .input::placeholder {
-  color: rgba(0,0,0,0.4);     /* чтобы плейсхолдер был серый */
+  color: rgba(0,0,0,0.4);
 }
+
 .input:focus {
   border-color: rgba(255,42,42,0.45);
   box-shadow: 0 0 0 4px rgba(255,42,42,0.12);
