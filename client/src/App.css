@@ -151,6 +151,13 @@ body {
   }
 }
 
+@supports (-webkit-touch-callout: none) {
+  .btn:active,
+  .nav-item:active {
+    transform: none !important;
+  }
+}
+
 .card-balance {
   background:
     linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,255,255,0.86));
