@@ -12,7 +12,6 @@ function App() {
   const [txs, setTxs] = useState([]);
 
   const [tab, setTab] = useState("profile"); // profile | history | qr
-
   const [form, setForm] = useState({ name: "", phone: "", agree: false });
 
   const inTelegram = Boolean(WebApp.initDataUnsafe?.user) && Boolean(WebApp.initData);
@@ -54,18 +53,13 @@ function App() {
     }
 
     refreshAll().catch((e) => setStatus("Ошибка: " + String(e?.message || e)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // QR генерация (пока статично)
+  // QR
   const qrPayload = useMemo(() => {
-    if (!auth?.telegramId) return null;
-    // На будущее: будем генерировать одноразовый токен на сервере
-    return JSON.stringify({
-      v: 1,
-      telegramId: auth.telegramId,
-      ts: Date.now(),
-      kind: "gokart_user",
-    });
+    if (!auth?.telegramId) return "";
+    return JSON.stringify({ v: 1, telegramId: auth.telegramId, ts: Date.now(), kind: "gokart_user" });
   }, [auth?.telegramId]);
 
   const [qrDataUrl, setQrDataUrl] = useState("");
@@ -80,12 +74,21 @@ function App() {
     return () => { cancelled = true; };
   }, [qrPayload]);
 
+  // --- UI helpers
+  const Page = ({ children }) => (
+    <div className="page">
+      <div className="container">
+        <div className="content">{children}</div>
+      </div>
+    </div>
+  );
+
   if (!inTelegram) {
     return (
-      <div className="page">
+      <Page>
         <h1 className="title">GoKart</h1>
         <p className="muted">{status}</p>
-      </div>
+      </Page>
     );
   }
 
@@ -94,7 +97,7 @@ function App() {
       form.agree && form.name.trim().length >= 2 && form.phone.trim().length >= 8;
 
     return (
-      <div className="page">
+      <Page>
         <h1 className="title">Регистрация</h1>
 
         <div className="card">
@@ -135,7 +138,6 @@ function App() {
               const r = await api("/api/register", { initData: WebApp.initData, ...form });
               if (!r.ok) return setStatus(r.error);
               await refreshAll();
-              // Показать бонус красиво
               try { WebApp.showPopup({ title: "Готово", message: "Регистрация сохранена. +200 баллов 🎁" }); } catch {}
             }}
           >
@@ -144,124 +146,108 @@ function App() {
         </div>
 
         <div className="status">{status}</div>
-      </div>
+      </Page>
     );
   }
 
   return (
     <div className="page">
       <div className="container">
-      <div className="topbar">
-        <h1 className="title">GoKart</h1>
-        <button className="btn btn-secondary btn-small" onClick={() => refreshAll().catch(()=>{})}>
-          Обновить
-        </button>
+        <div className="content">
+          <div className="topbar">
+            <h1 className="title">GoKart</h1>
+            <button className="btn btn-secondary btn-small" onClick={() => refreshAll().catch(()=>{})}>
+              Обновить
+            </button>
+          </div>
+
+          {tab === "profile" && (
+            <>
+              <div className="card balance-card">
+                <div className="muted">Баланс</div>
+                <div className="balance">{balance} баллов</div>
+              </div>
+
+              <div className="card mt-14">
+                <div className="row-between">
+                  <div className="muted">Имя</div>
+                  <div className="strong">{profile?.name || "—"}</div>
+                </div>
+                <div className="row-between mt-10">
+                  <div className="muted">Телефон</div>
+                  <div className="strong">{profile?.phone || "—"}</div>
+                </div>
+                <div className="row-between mt-10">
+                  <div className="muted">Telegram</div>
+                  <div className="strong">@{auth?.username || "—"}</div>
+                </div>
+              </div>
+            </>
+          )}
+
+          {tab === "history" && (
+            <section className="section">
+              <h3 className="section-title">История операций</h3>
+
+              {txs.length === 0 ? (
+                <div className="card muted">Пока нет операций</div>
+              ) : (
+                <div className="list">
+                  {txs.map((t) => (
+                    <div key={t.id} className="card tx">
+                      <div>
+                        <div className="tx-type">
+                          {t.type === "EARN" ? "Начисление" : t.type === "SPEND" ? "Списание" : "Корректировка"}
+                        </div>
+                        <div className="tx-date">{new Date(t.created_at).toLocaleString()}</div>
+                        {t.note ? <div className="tx-note">{t.note}</div> : null}
+                      </div>
+
+                      <div className={`tx-amount ${t.amount > 0 ? "pos" : "neg"}`}>
+                        {t.amount > 0 ? `+${t.amount}` : t.amount}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+
+          {tab === "qr" && (
+            <section className="section">
+              <h3 className="section-title">Ваш QR-код</h3>
+
+              <div className="card">
+                <div className="hint">
+                  Админ в будущем сможет отсканировать QR и списать баллы.
+                </div>
+
+                <div className="qrWrap">
+                  {qrDataUrl ? (
+                    <img className="qrImg" src={qrDataUrl} alt="QR" />
+                  ) : (
+                    <div className="muted">Генерируем QR...</div>
+                  )}
+                </div>
+              </div>
+            </section>
+          )}
+
+          <div className="status">{status}</div>
+        </div>
       </div>
 
-      {tab === "profile" && (
-        <>
-          <div className="card balance-card">
-            <div className="muted">Баланс</div>
-            <div className="balance">{balance} баллов</div>
-          </div>
-
-          <div className="card" style={{ marginTop: 14 }}>
-            <div className="row-between">
-              <div className="muted">Имя</div>
-              <div className="strong">{profile?.name || "—"}</div>
-            </div>
-            <div className="row-between" style={{ marginTop: 10 }}>
-              <div className="muted">Телефон</div>
-              <div className="strong">{profile?.phone || "—"}</div>
-            </div>
-            <div className="row-between" style={{ marginTop: 10 }}>
-              <div className="muted">Telegram</div>
-              <div className="strong">@{auth?.username || "—"}</div>
-            </div>
-          </div>
-        </>
-      )}
-
-      {tab === "history" && (
-        <section className="section">
-          <h3 className="section-title">История операций</h3>
-
-          {txs.length === 0 ? (
-            <div className="card muted">Пока нет операций</div>
-          ) : (
-            <div className="list">
-              {txs.map((t) => (
-                <div key={t.id} className="card tx">
-                  <div>
-                    <div className="tx-type">
-                      {t.type === "EARN" ? "Начисление" : t.type === "SPEND" ? "Списание" : "Корректировка"}
-                    </div>
-                    <div className="tx-date">{new Date(t.created_at).toLocaleString()}</div>
-                    {t.note ? <div className="tx-note">{t.note}</div> : null}
-                  </div>
-
-                  <div className={`tx-amount ${t.amount > 0 ? "pos" : "neg"}`}>
-                    {t.amount > 0 ? `+${t.amount}` : t.amount}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-      )}
-
-      {tab === "qr" && (
-        <section className="section">
-          <h3 className="section-title">Ваш QR-код</h3>
-
-          <div className="card">
-            <div className="hint">
-              Админ в будущем сможет отсканировать QR и списать баллы. Пока код содержит ваш telegramId.
-            </div>
-
-            <div className="qrWrap">
-              {qrDataUrl ? (
-                <img className="qrImg" src={qrDataUrl} alt="QR" />
-              ) : (
-                <div className="muted">Генерируем QR...</div>
-              )}
-            </div>
-
-            <div className="hint" style={{ marginTop: 10 }}>
-              Payload:
-              <div className="mono">{qrPayload || ""}</div>
-            </div>
-          </div>
-        </section>
-      )}
-
+      {/* bottom nav всегда вне container, чтобы быть full-width */}
       <div className="bottom-nav">
-  <button
-    className={`nav-item ${tab === "profile" ? "active" : ""}`}
-    onClick={() => setTab("profile")}
-  >
-    👤
-    <span>Профиль</span>
-  </button>
-
-  <button
-    className={`nav-item ${tab === "history" ? "active" : ""}`}
-    onClick={() => setTab("history")}
-  >
-    📜
-    <span>История</span>
-  </button>
-
-  <button
-    className={`nav-item ${tab === "qr" ? "active" : ""}`}
-    onClick={() => setTab("qr")}
-  >
-    📱
-    <span>QR</span>
-  </button>
-</div>
-
-      <div className="status">{status}</div>
+        <button className={`nav-item ${tab === "profile" ? "active" : ""}`} onClick={() => setTab("profile")}>
+          👤<span>Профиль</span>
+        </button>
+        <button className={`nav-item ${tab === "history" ? "active" : ""}`} onClick={() => setTab("history")}>
+          📜<span>История</span>
+        </button>
+        <button className={`nav-item ${tab === "qr" ? "active" : ""}`} onClick={() => setTab("qr")}>
+          📱<span>QR</span>
+        </button>
       </div>
     </div>
   );

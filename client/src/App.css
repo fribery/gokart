@@ -292,3 +292,32 @@ body {
 .nav-item.active {
   color: var(--primary);
 }
+
+/* iOS / Telegram: гарантируем полноценный layout */
+html, body, #root { height: 100%; }
+#root { width: 100%; }
+.page { width: 100%; }
+
+/* container всегда 100%, ограничение только на больших экранах */
+.container {
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+/* content — колонка на всю ширину */
+.content {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+/* cards/sections/list — всегда full width */
+.card, .section, .list, .topbar {
+  width: 100%;
+}
+
+/* маленькие утилиты */
+.mt-10 { margin-top: 10px; }
+.mt-14 { margin-top: 14px; }
