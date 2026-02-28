@@ -52,47 +52,41 @@ body {
   gap: 14px;
 }
 
-/* Header */
-.header {
+/* ===== Clean Premium Header ===== */
+
+.header-clean {
   width: 100%;
-  border-radius: 22px;
-  padding: 14px 14px;
-  background:
-    linear-gradient(135deg, rgba(12,12,16,0.96), rgba(14,14,18,0.92));
-  box-shadow: var(--shadow2);
-  border: 1px solid rgba(255,255,255,0.08);
-  position: relative;
-  overflow: hidden;
+  padding: 8px 4px 6px 4px;
 }
 
-.header::before {
-  content: "";
-  position: absolute;
-  inset: -40px -60px auto -60px;
-  height: 140px;
-  background:
-    linear-gradient(90deg, transparent 0%, rgba(255,42,42,0.55) 45%, transparent 100%);
-  transform: rotate(-8deg);
-  filter: blur(0.2px);
-  opacity: 0.9;
+.header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
-.header::after {
-  content: "";
-  position: absolute;
-  right: -40px;
-  top: -40px;
-  width: 180px;
-  height: 180px;
-  background: radial-gradient(circle at 30% 30%, rgba(255,42,42,0.35), transparent 60%);
-  transform: rotate(12deg);
+.logo-placeholder {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #111, #1a1a1a);
+  border: 1px solid rgba(0,0,0,0.1);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.08);
 }
 
-.header-left, .header-right {
-  position: relative;
-  z-index: 1;
+/* Когда добавишь логотип — просто заменишь div на img */
+
+.header-subtitle {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(0,0,0,0.55);
 }
-.header-right { display: flex; align-items: center; justify-content: flex-end; }
+
+.header-right {
+  display: flex;
+  align-items: center;
+}
 
 .brand {
   display: flex;

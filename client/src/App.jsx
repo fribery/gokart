@@ -185,7 +185,7 @@ function App() {
 
     return (
       <Page>
-        <Header title="Регистрация" subtitle="Залетаем в лигу: +200 баллов 🎁" />
+        <Header subtitle="Залетаем в лигу: +200 баллов 🎁" />
 
         <Card>
           <div className="field">
@@ -252,7 +252,6 @@ function App() {
         <div className="content">
           <div className="topbar">
             <Header
-              title="GoKart"
               subtitle={
                 profile?.name
                   ? `Пилот: ${profile.name}`
@@ -469,19 +468,16 @@ function App() {
   );
 }
 
-function Header({ title, subtitle, right }) {
+function Header({ subtitle, right }) {
   return (
-    <div className="header">
-      <div className="header-left">
-        <div className="brand">
-          <span className="brand-mark" />
-          <div className="brand-text">
-            <div className="title">{title}</div>
-            <div className="subtitle">{subtitle}</div>
-          </div>
-        </div>
+    <div className="header-clean">
+      <div className="header-inner">
+        {/* Здесь потом будет логотип */}
+        <div className="logo-placeholder" />
+        <div className="header-right">{right}</div>
       </div>
-      <div className="header-right">{right}</div>
+
+      {subtitle && <div className="header-subtitle">{subtitle}</div>}
     </div>
   );
 }
