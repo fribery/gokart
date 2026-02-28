@@ -43,7 +43,11 @@ function addKid() {
 
 function removeKid(key) {
   setKids((prev) => prev.filter((k) => k !== key));
-  delete kidsRefs.current[key];
+
+  // ВАЖНО: удаляем refs ПОСЛЕ того как React размонтирует DOM и вызовет ref(null)
+  setTimeout(() => {
+    delete kidsRefs.current[key];
+  }, 0);
 }
 
   async function api(path, payload) {
@@ -343,17 +347,22 @@ if (needsRegistration) {
         <div className="field">
           <div className="label">Имя</div>
           <input
-            ref={kidsRefs.current[key]?.nameRef}
+            ref={(el) => {
+              if (!kidsRefs.current[key]) kidsRefs.current[key] = { nameEl: null, dateEl: null };
+              kidsRefs.current[key].nameEl = el;
+            }}
             className="input"
             placeholder="Имя ребёнка"
-            autoComplete="off"
           />
         </div>
 
         <div className="field">
           <div className="label">Дата рождения</div>
           <input
-            ref={(el) => (kidsRefs.current[key].dateEl = el)}
+            ref={(el) => {
+              if (!kidsRefs.current[key]) kidsRefs.current[key] = { nameEl: null, dateEl: null };
+              kidsRefs.current[key].dateEl = el;
+            }}
             className="input"
             type="date"
           />
