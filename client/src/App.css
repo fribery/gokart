@@ -470,14 +470,31 @@ html {
 .mt-14 { margin-top: 14px; }
 .strong { font-weight: 950; }
 
+.kid-card {
+  border-radius: 16px;
+  padding: 14px;
+  margin-top: 4px;
+
+  border: 1px solid rgba(10,10,12,0.10);
+  background: rgba(255,255,255,0.85);
+}
+
+.kids {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px; /* расстояние между карточками детей */
+}
+
 .kid-remove {
   width: 28px;
   height: 28px;
   min-width: 28px;
 
   border-radius: 999px;
-  border: 1px solid rgba(0,0,0,0.15);
-  background: rgba(0,0,0,0.05);
+  border: 1px solid rgba(0,0,0,0.25);
+  background: rgba(0,0,0,0.85);
+  color: #fff;
 
   display: flex;
   align-items: center;
@@ -487,14 +504,17 @@ html {
   font-weight: 900;
   cursor: pointer;
 
-  transition: all 0.15s ease;
+  transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease;
 }
 
 .kid-remove:active {
-  transform: scale(0.9);
+  transform: scale(0.92);
 }
 
-.kid-remove:hover {
-  background: rgba(255, 0, 0, 0.08);
-  border-color: rgba(255, 0, 0, 0.25);
+/* лёгкий red-accent при наведении/фокусе (на мобиле будет видно по тапу) */
+.kid-remove:hover,
+.kid-remove:focus-visible {
+  background: #ff2a2a;
+  border-color: rgba(255, 42, 42, 0.65);
+  outline: none;
 }
