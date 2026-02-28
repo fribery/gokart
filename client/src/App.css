@@ -266,6 +266,13 @@ body {
   background: rgba(255,255,255,0.96);
   font-size: 15px;
   outline: none;
+
+  color: #111;               /* <-- ВОТ ЭТО ВАЖНО */
+  font-weight: 600;
+}
+
+.input::placeholder {
+  color: rgba(0,0,0,0.4);     /* чтобы плейсхолдер был серый */
 }
 .input:focus {
   border-color: rgba(255,42,42,0.45);
