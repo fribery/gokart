@@ -583,7 +583,7 @@ if (needsRegistration) {
                   </div>
                   <div className="row-between mt-10">
                     <div className="muted">Ваш ID</div>
-                    <div className="strong">{profile?.id || "—"}</div>
+                    <div className="strong">{auth?.id || "—"}</div>
                   </div>
                   <div className="row-between mt-10">
                     <div className="muted">Telegram</div>
