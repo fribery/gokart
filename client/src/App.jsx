@@ -29,6 +29,23 @@ function App() {
 
   const inTelegram = Boolean(WebApp.initDataUnsafe?.user) && Boolean(WebApp.initData);
 
+  const [kids, setKids] = useState([]); // массив ключей для рендера
+const kidsRefs = useRef({}); // {key: { nameRef, dateRef }}
+
+function addKid() {
+  const key = String(Date.now()) + "_" + String(Math.random()).slice(2);
+  kidsRefs.current[key] = {
+    nameRef: React.createRef(),
+    dateRef: React.createRef(),
+  };
+  setKids((prev) => [...prev, key]);
+}
+
+function removeKid(key) {
+  setKids((prev) => prev.filter((k) => k !== key));
+  delete kidsRefs.current[key];
+}
+
   async function api(path, payload) {
     const r = await fetch(path, {
       method: "POST",
@@ -306,6 +323,54 @@ if (needsRegistration) {
           />
         </div>
 
+        <div className="gap" />
+
+<button
+  type="button"
+  className="btn btn-secondary"
+  onClick={addKid}
+>
+  + Добавить ребёнка
+</button>
+
+{kids.length > 0 ? (
+  <div className="kids">
+    {kids.map((key, idx) => (
+      <div className="kid-card" key={key}>
+        <div className="row-between">
+          <div className="strong">Ребёнок #{idx + 1}</div>
+          <button
+            type="button"
+            className="btn btn-ghost-small"
+            onClick={() => removeKid(key)}
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="field">
+          <div className="label">Имя</div>
+          <input
+            ref={kidsRefs.current[key]?.nameRef}
+            className="input"
+            placeholder="Имя ребёнка"
+            autoComplete="off"
+          />
+        </div>
+
+        <div className="field">
+          <div className="label">Дата рождения</div>
+          <input
+            ref={kidsRefs.current[key]?.dateRef}
+            className="input"
+            type="date"
+          />
+        </div>
+      </div>
+    ))}
+  </div>
+) : null}
+
         <label className="check">
           <input
             type="checkbox"
@@ -325,27 +390,52 @@ if (needsRegistration) {
               const name = (nameRef.current?.value || "").trim();
               const phone = (phoneRef.current?.value || "").trim();
 
-              if (name.length < 2) return setStatus("Введите имя (минимум 2 символа)");
-              if (phone.length < 8) return setStatus("Введите телефон (минимум 8 символов)");
-              if (!agree) return setStatus("Нужно согласие с правилами");
+              if (name.length < 2) {
+                setStatus("Введите имя (минимум 2 символа)");
+                return;
+              }
+
+              if (phone.length < 8) {
+                setStatus("Введите телефон (минимум 8 символов)");
+                return;
+              }
+
+              // 👇👇👇 ВОТ ЭТО НОВЫЙ КОД — сбор детей
+              const children = kids
+                .map((key) => {
+                  const refs = kidsRefs.current[key];
+                  return {
+                    name: (refs?.nameRef?.current?.value || "").trim(),
+                    birthDate: (refs?.dateRef?.current?.value || "").trim(),
+                  };
+                })
+                .filter((c) => c.name && c.birthDate);
+              // 👆👆👆 КОНЕЦ НОВОГО КОДА
 
               setStatus("Сохраняем...");
+
               const r = await api("/api/register", {
                 initData: WebApp.initData,
                 name,
                 phone,
                 agree: true,
+                children, // 👈 вот здесь добавляем
               });
 
-              if (!r.ok) return setStatus(r.error);
+              if (!r.ok) {
+                setStatus(r.error);
+                return;
+              }
 
               await refreshAll();
+
               try {
                 WebApp.showPopup({
                   title: "Готово",
-                  message: "Регистрация сохранена. +200 баллов 🎁",
+                  message: "Регистрация сохранена",
                 });
               } catch {}
+
             } catch (e) {
               setStatus("Ошибка: " + String(e?.message || e));
             }

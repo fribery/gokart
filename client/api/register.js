@@ -105,10 +105,20 @@ export default async function handler(req, res) {
 
     const isFirstRegistration = !existedProfile;
 
+    const childrenRaw = body?.children;
+    const children = Array.isArray(childrenRaw)
+      ? childrenRaw
+      .map((c) => ({
+        name: String(c?.name || "").trim(),
+        birthDate: String(c?.birthDate || "").trim(), // "YYYY-MM-DD"
+      }))
+      .filter((c) => c.name.length >= 1 && c.birthDate.length >= 8)
+    : [];
+
     // upsert профиля
     const { data: profile, error: profErr } = await supabase
       .from("profiles")
-      .upsert({ telegram_id: telegramId, name, phone }, { onConflict: "telegram_id" })
+      .upsert({ telegram_id: telegramId, name, phone, children }, { onConflict: "telegram_id" })
       .select("telegram_id, name, phone, created_at")
       .single();
 
