@@ -14,6 +14,8 @@ function App() {
   const [tab, setTab] = useState("profile"); // profile | history | qr
   const [form, setForm] = useState({ name: "", phone: "", agree: false });
 
+  const [admin, setAdmin] = useState({ targetTelegramId: "", amount: "", note: "" });
+
   const inTelegram = Boolean(WebApp.initDataUnsafe?.user) && Boolean(WebApp.initData);
 
   async function api(path, payload) {
@@ -40,6 +42,26 @@ function App() {
 
     setStatus("Готово");
   }
+
+  const onAdminChange = (key) => (e) =>
+  setAdmin((p) => ({ ...p, [key]: e.target.value }));
+
+async function adminEarn() {
+  setStatus("Админ: начисление...");
+  const r = await api("/api/admin/earn", {
+    initData: WebApp.initData,
+    targetTelegramId: Number(admin.targetTelegramId),
+    amount: Number(admin.amount),
+    note: admin.note,
+  });
+
+  if (!r.ok) {
+    setStatus(`Ошибка: ${r.error}${r.details ? " | " + r.details : ""}${r.balance != null ? " | balance=" + r.balance : ""}`);
+    return;
+  }
+
+  await refreshAll();
+  setStatus("Админ: начисление завершено");
 
   useEffect(() => {
     try {
