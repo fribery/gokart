@@ -30,7 +30,7 @@ function App() {
   const inTelegram = Boolean(WebApp.initDataUnsafe?.user) && Boolean(WebApp.initData);
 
   const [kids, setKids] = useState([]); // массив ключей для рендера
-const kidsRefs = useRef({}); // {key: { nameRef, dateRef }}
+  const kidsRefs = useRef({}); // {key: { nameRef, dateRef }}
 
 function addKid() {
   const key = String(Date.now()) + "_" + String(Math.random()).slice(2);
@@ -263,14 +263,6 @@ const screenVariants = {
   exit: { opacity: 0, y: -8, transition: { duration: 0.18 } },
 };
 
-  const Page = ({ children }) => (
-    <div className="page">
-      <div className="container">
-        <div className="content">{children}</div>
-      </div>
-    </div>
-  );
-
   if (!inTelegram) {
     return (
       <Page>
@@ -361,7 +353,7 @@ if (needsRegistration) {
         <div className="field">
           <div className="label">Дата рождения</div>
           <input
-            ref={kidsRefs.current[key]?.dateRef}
+            ref={(el) => (kidsRefs.current[key].dateEl = el)}
             className="input"
             type="date"
           />
@@ -402,14 +394,14 @@ if (needsRegistration) {
 
               // 👇👇👇 ВОТ ЭТО НОВЫЙ КОД — сбор детей
               const children = kids
-                .map((key) => {
-                  const refs = kidsRefs.current[key];
-                  return {
-                    name: (refs?.nameRef?.current?.value || "").trim(),
-                    birthDate: (refs?.dateRef?.current?.value || "").trim(),
-                  };
-                })
-                .filter((c) => c.name && c.birthDate);
+              .map((key) => {
+                const refs = kidsRefs.current[key];
+                return {
+                  name: (refs?.nameEl?.value || "").trim(),
+                  birthDate: (refs?.dateEl?.value || "").trim(),
+                };
+              })
+              .filter((c) => c.name && c.birthDate);
               // 👆👆👆 КОНЕЦ НОВОГО КОДА
 
               setStatus("Сохраняем...");
@@ -750,6 +742,16 @@ function BottomNav({ tab, setTab }) {
       <Item id="profile" icon="🏁" label="Профиль" />
       <Item id="history" icon="🧾" label="История" />
       <Item id="qr" icon="📟" label="QR" />
+    </div>
+  );
+}
+
+function Page({ children }) {
+  return (
+    <div className="page">
+      <div className="container">
+        <div className="content">{children}</div>
+      </div>
     </div>
   );
 }
