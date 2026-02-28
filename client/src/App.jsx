@@ -17,6 +17,11 @@ function App() {
   const phoneRef = useRef(null);
   const [agree, setAgree] = useState(false);
 
+  const [totalSpent, setTotalSpent] = useState(0);
+  const [league, setLeague] = useState(null); // { name, cashbackPercent }
+  const [nextLeague, setNextLeague] = useState(null); // { name, min, cashbackPercent } | null
+  const [progressToNext, setProgressToNext] = useState(null); // { progress, toNext, currentMin, nextMin }
+
   const [qrPayload, setQrPayload] = useState("");
   const [qrExpiresAt, setQrExpiresAt] = useState("");
 
@@ -69,6 +74,10 @@ function removeKid(key) {
     setProfile(me.profile);
     setNeedsRegistration(Boolean(me.needsRegistration));
     setBalance(Number(me.balance || 0));
+    setTotalSpent(Number(me.totalSpent || 0));
+    setLeague(me.league || null);
+    setNextLeague(me.nextLeague || null);
+    setProgressToNext(me.progressToNext || null);
 
     const tx = await api("/api/transactions", { initData: WebApp.initData, limit: 50 });
     if (tx.ok) setTxs(tx.items || []);
@@ -568,9 +577,57 @@ if (needsRegistration) {
                       }}
                     />
                   </div>
-
-                  <div className="mini-hint">Подсказка: 1000 = следующая “лига” (позже сделаем уровни).</div>
                 </Card>
+
+                <Card className="mt-14">
+                <div className="row-between">
+                  <div>
+                    <div className="muted">Лига</div>
+                    <div className="strong" style={{ fontSize: 18 }}>
+                      {league?.name || "—"}
+                    </div>
+                    <div className="hint">
+                      Кешбек: {league ? `${Math.round(league.cashbackPercent * 100)}%` : "—"}
+                    </div>
+                  </div>
+
+                  <div className="pill">
+                    {league ? `${Math.round(league.cashbackPercent * 100)}%` : "—"}
+                  </div>
+                </div>
+
+                <div className="gap" />
+
+                <div className="row-between">
+                  <div className="muted">Потрачено</div>
+                  <div className="strong">
+                    {Math.round(totalSpent).toLocaleString("ru-RU")} ₽
+                  </div>
+                </div>
+
+                {nextLeague && progressToNext ? (
+                  <>
+                    <div className="gap" />
+
+                    <div className="hint">
+                      До <b>{nextLeague.name}</b> осталось{" "}
+                      <b>{Math.round(progressToNext.toNext).toLocaleString("ru-RU")} ₽</b> (кешбек{" "}
+                      {Math.round(nextLeague.cashbackPercent * 100)}%)
+                    </div>
+
+                    <div className="meter" style={{ marginTop: 10 }}>
+                      <div
+                        className="meter-fill"
+                        style={{ width: `${Math.round((progressToNext.progress || 0) * 100)}%` }}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <div className="hint" style={{ marginTop: 10 }}>
+                    Максимальная лига достигнута 🏆
+                  </div>
+                )}
+              </Card>
 
                 <Card className="mt-14">
                   <div className="row-between">
@@ -583,7 +640,7 @@ if (needsRegistration) {
                   </div>
                   <div className="row-between mt-10">
                     <div className="muted">Ваш ID</div>
-                    <div className="strong">{auth?.id || "—"}</div>
+                    <div className="strong">{profile?.telegram_id || "—"}</div>
                   </div>
                   <div className="row-between mt-10">
                     <div className="muted">Telegram</div>
