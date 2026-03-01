@@ -79,10 +79,10 @@ async function getTotalSpent(supabase, telegramId) {
 
 /** Настройка лиг */
 const LEAGUES = [
-  { name: "Rookie", min: 0, percent: 0.03 },
-  { name: "Pro", min: 10000, percent: 0.05 },
-  { name: "Elite", min: 30000, percent: 0.07 },
-  { name: "Legend", min: 60000, percent: 0.10 },
+  { name: "Новичок", min: 0, percent: 0.03 },
+  { name: "Любитель", min: 10000, percent: 0.05 },
+  { name: "Профессионал", min: 30000, percent: 0.07 },
+  { name: "Супер гонщик", min: 60000, percent: 0.10 },
 ];
 
 function leagueFor(totalSpent) {
