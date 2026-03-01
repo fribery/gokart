@@ -140,55 +140,6 @@ useEffect(() => {
       [key]: e.target.value,
     }));
 
-  async function adminEarn() {
-    try {
-      setStatus("Админ: начисление...");
-      const response = await api("/api/admin/earn", {
-        initData: WebApp.initData,
-        targetTelegramId: Number(admin.targetTelegramId),
-        amount: Number(admin.amount),
-        note: admin.note,
-      });
-
-      if (!response.ok) {
-        setStatus(`Ошибка: ${response.error}${response.details ? " | " + response.details : ""}`);
-        return;
-      }
-
-      await refreshAll();
-      setStatus("Готово");
-      try {
-        WebApp.hapticFeedback?.notificationOccurred?.("success");
-      } catch {}
-    } catch (error) {
-      setStatus("Ошибка: " + String(error?.message || error));
-    }
-  }
-
-  async function adminEarnByQr() {
-  try {
-    setStatus("Админ: начисление по QR...");
-
-    const response = await api("/api/admin/earn-by-qr", {
-      initData: WebApp.initData,
-      qrPayload: admin.qrPayload,
-      amount: Number(admin.amount),
-      note: admin.note,
-    });
-
-    if (!response.ok) {
-      setStatus(`Ошибка: ${response.error}${response.details ? " | " + response.details : ""}`);
-      return;
-    }
-
-    setAdmin((p) => ({ ...p, qrPayload: "" })); // токен одноразовый
-    await refreshAll();
-    setStatus(`Начислено ✅ (клиент ${response.targetTelegramId})`);
-  } catch (e) {
-    setStatus("Ошибка: " + String(e?.message || e));
-  }
-}
-
   async function adminSpend() {
     try {
       const amount = Number(admin.spendPoints);
@@ -677,6 +628,17 @@ if (needsRegistration) {
                         placeholder="например 200"
                         value={admin.orderAmount}
                         onChange={onAdminChange("orderAmount")}
+                      />
+                    </div>
+
+                    <div className="field">
+                      <div className="label">Списать баллы</div>
+                      <input
+                        className="input"
+                        inputMode="numeric"
+                        placeholder="например 50"
+                        value={admin.spendPoints}
+                        onChange={onAdminChange("spendPoints")}
                       />
                     </div>
 
