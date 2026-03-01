@@ -27,7 +27,8 @@ function App() {
 
   const [admin, setAdmin] = useState({
   targetTelegramId: "",
-  orderAmount: "",
+  orderAmount: "",   // ₽ для кешбека
+  spendPoints: "",   // баллы для списания
   note: "",
   qrPayload: "",
   });
@@ -190,33 +191,31 @@ useEffect(() => {
 
   async function adminSpend() {
     try {
-      setStatus("Админ: списание...");
-      const response = await api("/api/admin/spend", {
+      const amount = Number(admin.spendPoints);
+
+      if (!Number.isFinite(amount) || amount <= 0) {
+        setStatus("Введите количество баллов для списания");
+        return;
+      }
+
+      setStatus("Списание...");
+
+      const r = await api("/api/admin/spend", {
         initData: WebApp.initData,
         targetTelegramId: Number(admin.targetTelegramId),
-        amount: Number(admin.amount),
+        amount,
         note: admin.note,
       });
 
-      if (!response.ok) {
-        setStatus(
-          `Ошибка: ${response.error}${response.details ? " | " + response.details : ""}${
-            response.balance != null ? " | balance=" + response.balance : ""
-          }`
-        );
-        try {
-          WebApp.hapticFeedback?.notificationOccurred?.("error");
-        } catch {}
+      if (!r.ok) {
+        setStatus(`Ошибка: ${r.error}`);
         return;
       }
 
       await refreshAll();
-      setStatus("Готово");
-      try {
-        WebApp.hapticFeedback?.notificationOccurred?.("success");
-      } catch {}
-    } catch (error) {
-      setStatus("Ошибка: " + String(error?.message || error));
+      setStatus("Списано ✅");
+    } catch (e) {
+      setStatus("Ошибка: " + String(e?.message || e));
     }
   }
 
@@ -312,29 +311,30 @@ async function adminCashback() {
 
 async function adminSpendByQr() {
   try {
-    setStatus("Админ: списание по QR...");
+    const amount = Number(admin.spendPoints);
 
-    const response = await api("/api/admin/spend-by-qr", {
-      initData: WebApp.initData,
-      qrPayload: admin.qrPayload,
-      amount: Number(admin.amount),
-      note: admin.note,
-    });
-
-    if (!response.ok) {
-      setStatus(
-        `Ошибка: ${response.error}${response.details ? " | " + response.details : ""}${
-          response.balance != null ? " | balance=" + response.balance : ""
-        }`
-      );
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setStatus("Введите количество баллов для списания");
       return;
     }
 
-    // токен одноразовый — очищаем
-    setAdmin((p) => ({ ...p, qrPayload: "" }));
+    setStatus("Списание по QR...");
 
+    const r = await api("/api/admin/spend-by-qr", {
+      initData: WebApp.initData,
+      qrPayload: admin.qrPayload,
+      amount,
+      note: admin.note,
+    });
+
+    if (!r.ok) {
+      setStatus(`Ошибка: ${r.error}`);
+      return;
+    }
+
+    setAdmin((p) => ({ ...p, qrPayload: "" }));
     await refreshAll();
-    setStatus(`Списано ✅ (клиент ${response.targetTelegramId})`);
+    setStatus("Списано по QR ✅");
   } catch (e) {
     setStatus("Ошибка: " + String(e?.message || e));
   }
