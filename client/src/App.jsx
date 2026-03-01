@@ -675,7 +675,7 @@ if (needsRegistration) {
                         className="input"
                         inputMode="numeric"
                         placeholder="например 200"
-                        value={admin.spendPoints}
+                        value={admin.orderAmount}
                         onChange={onAdminChange("orderAmount")}
                       />
                     </div>
